@@ -50,3 +50,6 @@ docker-compose.override.yml
 .env
 .env.local
 .env.production
+
+# Generated nginx config
+nginx/nginx.conf

@@ -4,10 +4,7 @@ const nextConfig = {
   output: "standalone",
 
   // Optimize for production
-  experimental: {
-    // Enable server components
-    serverComponentsExternalPackages: ["@prisma/client"],
-  },
+  serverExternalPackages: ["@prisma/client"],
 
   // Environment variables
   env: {

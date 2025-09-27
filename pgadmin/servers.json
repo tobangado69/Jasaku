@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Jasaku PostgreSQL",
+      "Group": "Servers",
+      "Host": "database",
+      "Port": 5432,
+      "MaintenanceDB": "jasaku",
+      "Username": "postgres",
+      "SSLMode": "prefer",
+      "Comment": "Jasaku Development Database"
+    }
+  }
+}

@@ -55,6 +55,62 @@ async function main() {
     },
   })
 
+  // Create categories
+  const cleaningCategory = await prisma.category.upsert({
+    where: { id: 'cat_cleaning' },
+    update: {},
+    create: {
+      id: 'cat_cleaning',
+      name: 'Cleaning',
+      description: 'Cleaning and maintenance services',
+      isActive: true,
+    },
+  })
+
+  const itCategory = await prisma.category.upsert({
+    where: { id: 'cat_it' },
+    update: {},
+    create: {
+      id: 'cat_it',
+      name: 'IT Services',
+      description: 'Information technology and software services',
+      isActive: true,
+    },
+  })
+
+  const homeCategory = await prisma.category.upsert({
+    where: { id: 'cat_home' },
+    update: {},
+    create: {
+      id: 'cat_home',
+      name: 'Home Services',
+      description: 'Home improvement and maintenance services',
+      isActive: true,
+    },
+  })
+
+  const educationCategory = await prisma.category.upsert({
+    where: { id: 'cat_education' },
+    update: {},
+    create: {
+      id: 'cat_education',
+      name: 'Education',
+      description: 'Educational and tutoring services',
+      isActive: true,
+    },
+  })
+
+  const otherCategory = await prisma.category.upsert({
+    where: { id: 'cat_other' },
+    update: {},
+    create: {
+      id: 'cat_other',
+      name: 'Other Services',
+      description: 'Miscellaneous services',
+      isActive: true,
+    },
+  })
+
   // Create services
   const houseCleaningService = await prisma.service.upsert({
     where: { id: 'service-1' },

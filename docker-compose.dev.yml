@@ -1,0 +1,65 @@
+services:
+  # Database service
+  database:
+    image: postgres:15-alpine
+    container_name: jasaku-postgres-dev
+    environment:
+      POSTGRES_DB: jasaku
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - jasaku-dev-network
+
+  # Next.js application (development)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: jasaku-app-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/jasaku
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=development-secret-key
+    depends_on:
+      - database
+    networks:
+      - jasaku-dev-network
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: jasaku-pgadmin-dev
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@jasaku.com
+      - PGADMIN_DEFAULT_PASSWORD=admin123
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    depends_on:
+      - database
+    networks:
+      - jasaku-dev-network
+    volumes:
+      - pgadmin_dev_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+
+volumes:
+  postgres_dev_data:
+  pgadmin_dev_data:
+
+networks:
+  jasaku-dev-network:
+    driver: bridge
