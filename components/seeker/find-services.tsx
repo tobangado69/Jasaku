@@ -1,6 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
+// Declare Midtrans Snap types
+declare global {
+  interface Window {
+    snap: {
+      pay: (token: string, options: any) => void;
+    };
+  }
+}
 import {
   Card,
   CardContent,
@@ -86,6 +95,7 @@ export function SeekerFindServices() {
     location: "",
   });
   const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
+  const [isLoadingMidtrans, setIsLoadingMidtrans] = useState(false);
 
   const getCategoryName = (category: Category | string): string => {
     if (typeof category === "string") {
@@ -146,7 +156,6 @@ export function SeekerFindServices() {
       scheduledTime: "",
       notes: "",
       location: "",
-      paymentMethod: "qris",
     });
     setIsBookingDialogOpen(true);
   };
@@ -179,13 +188,30 @@ export function SeekerFindServices() {
           location: "",
         });
 
-        // Show success message - payment will be handled by Midtrans
-        alert(
-          "Booking created successfully! You will be redirected to complete payment."
-        );
+        // Check if we have Xendit invoice data
+        if (data.xenditInvoice?.invoice_url) {
+          setIsLoadingMidtrans(true);
 
-        // The payment component will handle the Midtrans redirect
-        // No need for additional handling here
+          // Redirect to Xendit invoice page
+          setTimeout(() => {
+            setIsLoadingMidtrans(false);
+            // Open Xendit invoice in new tab/window
+            window.open(data.xenditInvoice.invoice_url, "_blank");
+
+            // Show success message
+            alert(
+              "Booking created successfully! Please complete payment on the Xendit page that opened."
+            );
+
+            // Refresh after a delay to show updated status
+            setTimeout(() => window.location.reload(), 5000);
+          }, 1000);
+        } else {
+          // Fallback if no Midtrans transaction token
+          alert(
+            "Booking created successfully! Please complete payment to confirm."
+          );
+        }
       } else {
         const error = await response.json();
         alert(`Booking failed: ${error.error || "Unknown error"}`);
@@ -195,6 +221,7 @@ export function SeekerFindServices() {
       alert("Booking failed. Please try again.");
     } finally {
       setIsBookingSubmitting(false);
+      setIsLoadingMidtrans(false);
     }
   };
 
@@ -427,6 +454,19 @@ export function SeekerFindServices() {
               />
             </div>
           </div>
+
+          {/* Loading indicator for Midtrans */}
+          {isLoadingMidtrans && (
+            <div className="flex items-center justify-center py-4">
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span className="text-sm text-gray-600">
+                  Loading payment system...
+                </span>
+              </div>
+            </div>
+          )}
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -436,9 +476,13 @@ export function SeekerFindServices() {
             </Button>
             <Button
               onClick={handleBookingSubmit}
-              disabled={isBookingSubmitting}
+              disabled={isBookingSubmitting || isLoadingMidtrans}
             >
-              {isBookingSubmitting ? "Processing..." : "Book & Pay"}
+              {isBookingSubmitting
+                ? "Creating booking..."
+                : isLoadingMidtrans
+                ? "Loading payment..."
+                : "Book & Pay"}
             </Button>
           </DialogFooter>
         </DialogContent>

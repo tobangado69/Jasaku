@@ -27,6 +27,9 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@database:5432/jasaku
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=development-secret-key
+      - XENDIT_API_KEY=xnd_development_your_actual_secret_key_here
+      - XENDIT_WEBHOOK_TOKEN=your_webhook_verification_token
+      - NEXT_PUBLIC_XENDIT_CLIENT_KEY=your_public_client_key
     depends_on:
       - database
     networks:

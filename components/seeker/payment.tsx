@@ -10,33 +10,16 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
-  CreditCard,
-  Smartphone,
-  Building2,
   QrCode,
   CheckCircle,
   Clock,
   AlertCircle,
   ExternalLink,
+  CreditCard,
+  Banknote,
 } from "lucide-react";
-
-// Declare Midtrans Snap types
-declare global {
-  interface Window {
-    snap: {
-      pay: (token: string, options: any) => void;
-    };
-  }
-}
 
 interface Payment {
   id: string;
@@ -77,28 +60,7 @@ export function SeekerPayment({
   const [payment, setPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [midtransLoaded, setMidtransLoaded] = useState(false);
-
-  // Load Midtrans Snap script
-  useEffect(() => {
-    if (typeof window === "undefined") return; // Skip on server-side
-
-    const script = document.createElement("script");
-    script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
-    script.setAttribute(
-      "data-client-key",
-      process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ""
-    );
-    script.onload = () => setMidtransLoaded(true);
-    script.onerror = () => console.error("Failed to load Midtrans script");
-    document.head.appendChild(script);
-
-    return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
-  }, []);
+  const [xenditInvoice, setXenditInvoice] = useState<any>(null);
 
   // Fetch existing payment for this booking
   useEffect(() => {
@@ -122,11 +84,6 @@ export function SeekerPayment({
   }, [bookingId]);
 
   const handleCreatePayment = async () => {
-    if (!midtransLoaded) {
-      alert("Payment system is loading. Please try again in a moment.");
-      return;
-    }
-
     setIsProcessingPayment(true);
 
     try {
@@ -141,32 +98,25 @@ export function SeekerPayment({
       if (response.ok) {
         const data = await response.json();
         setPayment(data.payment);
+        setXenditInvoice(data.xenditInvoice);
 
-        // Redirect to Midtrans payment page
-        if (data.midtransTransaction?.token && window.snap) {
-          window.snap.pay(data.midtransTransaction.token, {
-            onSuccess: function (result: any) {
-              console.log("Payment success:", result);
-              // Payment completed, refresh payment status
-              window.location.reload();
-            },
-            onPending: function (result: any) {
-              console.log("Payment pending:", result);
-              // Payment pending, refresh to show updated status
-              window.location.reload();
-            },
-            onError: function (result: any) {
-              console.log("Payment error:", result);
-              alert("Payment failed. Please try again.");
-            },
-            onClose: function () {
-              console.log("Payment popup closed");
-              // Refresh to check if payment was completed
-              setTimeout(() => window.location.reload(), 1000);
-            },
-          });
+        // Open Xendit invoice in new tab
+        if (data.xenditInvoice?.invoice_url) {
+          window.open(data.xenditInvoice.invoice_url, "_blank");
+
+          // Show success message
+          alert(
+            "Payment page opened! Please complete your payment on the Xendit page."
+          );
+
+          // Refresh after delay to check payment status
+          setTimeout(() => {
+            window.location.reload();
+          }, 5000);
         } else {
-          alert("Payment system error. Please try again.");
+          alert(
+            "Payment created successfully! Please check your email for payment instructions."
+          );
         }
 
         onPaymentComplete?.(data.payment);
@@ -251,7 +201,7 @@ export function SeekerPayment({
               </div>
               <div>
                 <div className="font-medium">Method</div>
-                <div>{payment.paymentMethod}</div>
+                <div>Xendit</div>
               </div>
               <div>
                 <div className="font-medium">Transaction ID</div>
@@ -264,6 +214,30 @@ export function SeekerPayment({
                 <div>{new Date(payment.createdAt).toLocaleDateString()}</div>
               </div>
             </div>
+
+            {xenditInvoice && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center space-x-3">
+                  <QrCode className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <div className="font-medium text-blue-900">
+                      Payment Link
+                    </div>
+                    <div className="text-sm text-blue-700">
+                      Invoice ID: {xenditInvoice.id}
+                    </div>
+                    <a
+                      href={xenditInvoice.invoice_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline text-sm"
+                    >
+                      View Payment Page →
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {payment.status === "PENDING" && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -307,7 +281,8 @@ export function SeekerPayment({
       <CardHeader>
         <CardTitle>Complete Payment</CardTitle>
         <CardDescription>
-          Choose your preferred payment method to complete the booking
+          You will be redirected to Xendit's secure payment page to complete
+          your booking.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -318,9 +293,9 @@ export function SeekerPayment({
               <div>
                 <div className="font-medium text-blue-900">Secure Payment</div>
                 <div className="text-sm text-blue-700">
-                  You will be redirected to Midtrans secure payment page where
-                  you can choose from QRIS, GoPay, credit card, or bank
-                  transfer.
+                  You will be redirected to Xendit's secure payment page where
+                  you can choose from various payment methods including QRIS,
+                  bank transfer, e-wallet, and credit card.
                 </div>
               </div>
             </div>
@@ -329,18 +304,18 @@ export function SeekerPayment({
           <div className="flex space-x-3">
             <Button
               onClick={handleCreatePayment}
-              disabled={isProcessingPayment || !midtransLoaded}
+              disabled={isProcessingPayment}
               className="flex-1"
             >
               {isProcessingPayment ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Processing...
+                  Creating Payment...
                 </>
               ) : (
                 <>
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  Proceed to Payment
+                  Create Payment Link
                 </>
               )}
             </Button>
@@ -351,11 +326,32 @@ export function SeekerPayment({
             )}
           </div>
 
-          {!midtransLoaded && (
-            <div className="text-center text-sm text-gray-500">
-              Loading payment system...
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <CreditCard className="h-5 w-5 text-gray-600 mt-0.5" />
+              <div>
+                <div className="font-medium text-gray-900">
+                  Payment Methods Supported
+                </div>
+                <div className="text-sm text-gray-700 mt-1">
+                  <div className="flex items-center space-x-4 mt-2">
+                    <div className="flex items-center space-x-1">
+                      <QrCode className="h-4 w-4 text-green-600" />
+                      <span className="text-xs">QRIS</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Banknote className="h-4 w-4 text-blue-600" />
+                      <span className="text-xs">Bank Transfer</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <CreditCard className="h-4 w-4 text-purple-600" />
+                      <span className="text-xs">E-Wallet</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </CardContent>
     </Card>

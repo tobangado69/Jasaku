@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
+import { headers } from "next/headers"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { z } from "zod"
-import { CoreApi } from "midtrans-client"
+import { Xendit } from "xendit-node"
 
-const midtrans = new CoreApi({
-  isProduction: false,
-  serverKey: process.env.MIDTRANS_SERVER_KEY!,
-  clientKey: process.env.MIDTRANS_CLIENT_KEY!,
+const xendit = new Xendit({
+  secretKey: process.env.XENDIT_API_KEY!
 })
 
 const createBookingSchema = z.object({
@@ -22,6 +21,14 @@ const updateBookingSchema = z.object({
   status: z.enum(["PENDING", "CONFIRMED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
   completedAt: z.string().datetime().optional(),
 })
+
+// Helper function to get category name
+function getCategoryName(category: any): string {
+  if (typeof category === "string") {
+    return category;
+  }
+  return category?.name || "Unknown Category";
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -153,6 +160,19 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Check if payment already exists for this booking
+    const existingPayment = await prisma.payment.findUnique({
+      where: { bookingId: booking.id }
+    })
+
+    if (existingPayment) {
+      console.log("Payment already exists for booking:", booking.id)
+      return NextResponse.json({
+        error: "Payment already exists for this booking",
+        paymentId: existingPayment.id
+      }, { status: 409 })
+    }
+
     // Create payment record
     const payment = await prisma.payment.create({
       data: {
@@ -164,36 +184,70 @@ export async function POST(request: NextRequest) {
     })
 
     // Create Midtrans transaction
+    const orderId = `JASAKU-${booking.id}-${payment.id}`
     const parameter = {
-      payment_type: "qris", // Default to QRIS for Indonesian market
+      payment_type: "qris",
       transaction_details: {
-        order_id: `JASAKU-${booking.id}-${Date.now()}`,
+        order_id: orderId,
         gross_amount: service.price,
       },
       customer_details: {
         first_name: (session.user as any)?.name?.split(" ")[0] || "Customer",
+        last_name: (session.user as any)?.name?.split(" ").slice(1).join(" ") || "",
         email: (session.user as any)?.email,
+        phone: (session.user as any)?.phone || "",
       },
       item_details: [{
         id: service.id,
         price: service.price,
         quantity: 1,
         name: service.title,
+        category: "Service",
       }],
-      qris: {
-        acquirer: "gopay" // Can be gopay, shopeepay, etc.
+      callbacks: {
+        finish: `${process.env.NEXTAUTH_URL}/bookings`
       }
     }
 
+    console.log("Creating Xendit invoice with external_id:", orderId)
+
+    // Create Xendit invoice with minimal required structure based on latest API
+    const customerEmail = (session.user as any)?.email || ""
+    const customerName = (session.user as any)?.name || "Customer"
+    const nameParts = customerName.split(" ")
+    const givenNames = nameParts[0] || "Customer"
+    const surname = nameParts.slice(1).join(" ") || ""
+    
+    // Validate required fields
+    if (!customerEmail) {
+      throw new Error("Customer email is required for invoice creation")
+    }
+    
+    if (service.price <= 0) {
+      throw new Error("Invoice amount must be greater than 0")
+    }
+
+    const invoiceData = {
+        externalId: `JASAKU-${booking.id}-${payment.id}`,
+        amount: service.price,
+        payerEmail: customerEmail,
+        description: `Payment for ${service.title}`,
+        currency: "IDR"
+      }
+
+      console.log("Creating Xendit invoice with data:", JSON.stringify(invoiceData, null, 2))
+
     try {
-      const transaction = await midtrans.charge(parameter)
+      const invoice = await xendit.Invoice.createInvoice({
+        data: invoiceData
+      })
 
       // Update payment with transaction details
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
-          transactionId: transaction.transaction_id,
-          status: "PROCESSING"
+          transactionId: invoice.id,
+          status: "PENDING"
         }
       })
 
@@ -238,19 +292,54 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         booking: completeBooking,
-        midtransTransaction: transaction
+        xenditInvoice: {
+          id: invoice.id,
+          invoice_url: invoice.invoiceUrl,
+          status: invoice.status
+        }
       }, { status: 201 })
 
-    } catch (midtransError) {
-      console.error("Midtrans error:", midtransError)
+    } catch (xenditError: any) {
+      console.error("Xendit error details:", {
+        message: xenditError?.message,
+        status: xenditError?.status,
+        errorCode: xenditError?.errorCode,
+        errorMessage: xenditError?.errorMessage,
+        response: xenditError?.response,
+        rawResponse: xenditError?.rawResponse
+      })
 
-      // Delete booking and payment if Midtrans fails
+      // Log the request data that caused the error
+      console.error("Invoice data that caused error:", JSON.stringify(invoiceData, null, 2))
+
+      // Delete booking and payment if Xendit fails
       await prisma.payment.delete({ where: { id: payment.id } })
       await prisma.booking.delete({ where: { id: booking.id } })
 
+      // Extract safe error details to avoid circular reference
+      const errorDetails = {
+        message: xenditError?.message || "Unknown error",
+        statusCode: xenditError?.status || 500,
+        errorCode: xenditError?.errorCode || "UNKNOWN_ERROR",
+        errorMessage: xenditError?.errorMessage || "Unknown error message",
+        apiResponse: xenditError?.response || null
+      }
+
+      // Provide user-friendly error messages based on Xendit error
+      let userMessage = "Payment processing failed. Please try again.";
+      if (xenditError?.status === 500) {
+        userMessage = "Payment system is temporarily unavailable. Please try again in a few minutes.";
+      } else if (xenditError?.status === 401) {
+        userMessage = "Payment system configuration error. Please contact support.";
+      } else if (xenditError?.status === 400) {
+        userMessage = "Invalid payment request. Please check your information and try again.";
+      } else if (xenditError?.status === 409) {
+        userMessage = "Payment request conflict. Please try creating a new booking.";
+      }
+
       return NextResponse.json({
-        error: "Payment processing failed. Please try again.",
-        details: midtransError
+        error: userMessage,
+        details: errorDetails
       }, { status: 500 })
     }
   } catch (error) {
