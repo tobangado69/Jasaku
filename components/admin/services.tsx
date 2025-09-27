@@ -27,11 +27,17 @@ import {
   Shield,
 } from "lucide-react";
 
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 interface AdminService {
   id: string;
   title: string;
   description: string;
-  category: string;
+  category: Category | string;
   price: number;
   status: "ACTIVE" | "INACTIVE" | "PENDING_APPROVAL" | "REJECTED";
   provider: {
@@ -50,8 +56,16 @@ function AdminServices() {
   const [services, setServices] = useState<AdminService[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const getCategoryName = (category: Category | string): string => {
+    if (typeof category === "string") {
+      return category;
+    }
+    return category?.name || "Unknown Category";
+  };
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categories, setCategories] = useState<Category[]>([]);
   const [verifyingProviderId, setVerifyingProviderId] = useState<string | null>(
     null
   );
@@ -78,8 +92,23 @@ function AdminServices() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch("/api/categories?activeOnly=true");
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data);
+      } else {
+        console.error("Failed to fetch categories");
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+
   useEffect(() => {
     fetchServices();
+    fetchCategories();
   }, []);
 
   const filteredServices = services.filter((service) => {
@@ -90,7 +119,8 @@ function AdminServices() {
     const matchesStatus =
       statusFilter === "all" || service.status === statusFilter;
     const matchesCategory =
-      categoryFilter === "all" || service.category === categoryFilter;
+      categoryFilter === "all" ||
+      getCategoryName(service.category) === categoryFilter;
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
@@ -280,11 +310,6 @@ function AdminServices() {
     }
   };
 
-  const categories = [
-    "all",
-    ...Array.from(new Set(services.map((s) => s.category))),
-  ];
-
   if (loading) {
     return (
       <div className="space-y-4">
@@ -345,9 +370,10 @@ function AdminServices() {
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
             {categories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category === "all" ? "All Categories" : category}
+              <SelectItem key={category.id} value={category.name}>
+                {category.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -377,7 +403,7 @@ function AdminServices() {
                       {service.description}
                     </p>
                     <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <span>Category: {service.category}</span>
+                      <span>Category: {getCategoryName(service.category)}</span>
                       <span>Price: Rp {service.price.toLocaleString()}</span>
                       <span>Bookings: {service._count.bookings}</span>
                     </div>

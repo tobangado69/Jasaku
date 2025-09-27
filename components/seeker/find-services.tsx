@@ -31,11 +31,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Star, MapPin, Clock, Calendar, Search, Filter } from "lucide-react";
 
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 interface Service {
   id: string;
   title: string;
   description: string;
-  category: string;
+  category: Category | string;
   subcategory?: string;
   price: number;
   duration?: number;
@@ -81,6 +87,13 @@ export function SeekerFindServices() {
   });
   const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
 
+  const getCategoryName = (category: Category | string): string => {
+    if (typeof category === "string") {
+      return category;
+    }
+    return category?.name || "Unknown Category";
+  };
+
   useEffect(() => {
     const fetchServices = async () => {
       try {
@@ -108,7 +121,8 @@ export function SeekerFindServices() {
       service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       service.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory =
-      categoryFilter === "all" || service.category === categoryFilter;
+      categoryFilter === "all" ||
+      getCategoryName(service.category) === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
@@ -132,6 +146,7 @@ export function SeekerFindServices() {
       scheduledTime: "",
       notes: "",
       location: "",
+      paymentMethod: "qris",
     });
     setIsBookingDialogOpen(true);
   };
@@ -154,9 +169,23 @@ export function SeekerFindServices() {
       });
 
       if (response.ok) {
+        const data = await response.json();
         setIsBookingDialogOpen(false);
         setSelectedServiceForBooking(null);
-        alert("Booking request sent successfully!");
+        setBookingForm({
+          scheduledDate: "",
+          scheduledTime: "",
+          notes: "",
+          location: "",
+        });
+
+        // Show success message - payment will be handled by Midtrans
+        alert(
+          "Booking created successfully! You will be redirected to complete payment."
+        );
+
+        // The payment component will handle the Midtrans redirect
+        // No need for additional handling here
       } else {
         const error = await response.json();
         alert(`Booking failed: ${error.error || "Unknown error"}`);
@@ -171,7 +200,7 @@ export function SeekerFindServices() {
 
   const categories = [
     "all",
-    ...Array.from(new Set(services.map((s) => s.category))),
+    ...Array.from(new Set(services.map((s) => getCategoryName(s.category)))),
   ];
 
   if (loading) {
@@ -241,7 +270,9 @@ export function SeekerFindServices() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg">{service.title}</CardTitle>
-                  <CardDescription>{service.category}</CardDescription>
+                  <CardDescription>
+                    {getCategoryName(service.category)}
+                  </CardDescription>
                 </div>
                 <Badge
                   variant={
@@ -407,7 +438,7 @@ export function SeekerFindServices() {
               onClick={handleBookingSubmit}
               disabled={isBookingSubmitting}
             >
-              {isBookingSubmitting ? "Booking..." : "Confirm Booking"}
+              {isBookingSubmitting ? "Processing..." : "Book & Pay"}
             </Button>
           </DialogFooter>
         </DialogContent>

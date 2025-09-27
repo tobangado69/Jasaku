@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
+import { LogOut } from "lucide-react";
 import {
   LayoutDashboard,
   Users,
@@ -139,6 +141,12 @@ export function Sidebar({ userRole, user, className }: SidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const navItems = sidebarConfig[userRole] || [];
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    setSidebarOpen(false);
+  };
 
   const isActive = (href: string) => {
     if (href === `/${userRole}`) {
@@ -238,10 +246,14 @@ export function Sidebar({ userRole, user, className }: SidebarProps) {
 
           {/* Footer */}
           <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <Settings className="h-4 w-4" />
-              <span>Settings</span>
-            </div>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-gray-700 hover:bg-gray-100"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
           </div>
         </div>
       </div>

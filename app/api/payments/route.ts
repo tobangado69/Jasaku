@@ -7,7 +7,6 @@ import { CoreApi } from "midtrans-client"
 
 const createPaymentSchema = z.object({
   bookingId: z.string(),
-  paymentMethod: z.enum(["gopay", "bank_transfer", "credit_card", "qris"]).default("gopay"),
 })
 
 const midtrans = new CoreApi({
@@ -167,10 +166,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (booking.status !== "CONFIRMED") {
-      return NextResponse.json({ error: "Booking must be confirmed first" }, { status: 400 })
-    }
-
     // Check if payment already exists
     const existingPayment = await prisma.payment.findUnique({
       where: { bookingId: validatedData.bookingId }
@@ -185,7 +180,7 @@ export async function POST(request: NextRequest) {
       data: {
         bookingId: validatedData.bookingId,
         amount: booking.totalAmount,
-        paymentMethod: validatedData.paymentMethod,
+        paymentMethod: "qris", // Default to QRIS, user will choose on Midtrans page
         status: "PENDING"
       }
     })
@@ -279,22 +274,22 @@ export async function PUT(request: NextRequest) {
       case "capture":
       case "settlement":
         paymentStatus = "COMPLETED"
-        bookingStatus = "IN_PROGRESS"
+        bookingStatus = "CONFIRMED" // Booking is confirmed when payment succeeds
         break
       case "pending":
         paymentStatus = "PENDING"
-        bookingStatus = "CONFIRMED"
+        bookingStatus = "PENDING" // Keep booking pending until payment completes
         break
       case "deny":
       case "cancel":
       case "expire":
       case "failure":
         paymentStatus = "FAILED"
-        bookingStatus = "CANCELLED"
+        bookingStatus = "CANCELLED" // Cancel booking if payment fails
         break
       default:
         paymentStatus = "PROCESSING"
-        bookingStatus = "CONFIRMED"
+        bookingStatus = "PENDING"
     }
 
     // Update payment

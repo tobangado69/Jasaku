@@ -31,11 +31,17 @@ import {
 } from "@/components/ui/select";
 import { Plus, Edit, Trash2, Eye, EyeOff } from "lucide-react";
 
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 interface Service {
   id: string;
   title: string;
   description: string;
-  category: string;
+  category: Category | string; // Can be either an object or string for backward compatibility
   categoryId?: string; // For editing with new category system
   subcategory?: string;
   price: number;
@@ -156,6 +162,13 @@ export function ProviderServices() {
         {status}
       </Badge>
     );
+  };
+
+  const getCategoryName = (category: Category | string): string => {
+    if (typeof category === "string") {
+      return category;
+    }
+    return category?.name || "Unknown Category";
   };
 
   const handleToggleStatus = async (
@@ -416,7 +429,9 @@ export function ProviderServices() {
               ? {
                   ...service,
                   ...updatedService,
-                  category: updatedService.category?.name || service.category,
+                  category:
+                    updatedService.category?.name ||
+                    getCategoryName(service.category),
                 }
               : service
           )
@@ -518,7 +533,8 @@ export function ProviderServices() {
 
   const openEditDialog = (service: Service) => {
     // Find the category ID for this service
-    const category = categories.find((cat) => cat.name === service.category);
+    const categoryName = getCategoryName(service.category);
+    const category = categories.find((cat) => cat.name === categoryName);
 
     // If no category found by name, try to find by categoryId or use empty string
     let categoryId = "";
@@ -1032,7 +1048,9 @@ export function ProviderServices() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg">{service.title}</CardTitle>
-                  <CardDescription>{service.category}</CardDescription>
+                  <CardDescription>
+                    {getCategoryName(service.category)}
+                  </CardDescription>
                 </div>
                 {getStatusBadge(service.status)}
               </div>

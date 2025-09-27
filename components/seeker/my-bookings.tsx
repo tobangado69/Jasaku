@@ -17,7 +17,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Clock, Star, MessageCircle, X } from "lucide-react";
+import {
+  Calendar,
+  MapPin,
+  Clock,
+  Star,
+  MessageCircle,
+  X,
+  CreditCard,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
+import { SeekerPayment } from "./payment";
+
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+interface Payment {
+  id: string;
+  amount: number;
+  status: "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "PROCESSING";
+  paymentMethod: string;
+  transactionId?: string;
+}
 
 interface Booking {
   id: string;
@@ -29,7 +54,7 @@ interface Booking {
   service: {
     id: string;
     title: string;
-    category: string;
+    category: Category | string;
     images?: string[];
   };
   provider: {
@@ -39,6 +64,7 @@ interface Booking {
     phone?: string;
     location?: string;
   };
+  payment?: Payment;
   review?: {
     id: string;
     rating: number;
@@ -53,6 +79,15 @@ export function SeekerMyBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedBookingForPayment, setSelectedBookingForPayment] =
+    useState<Booking | null>(null);
+
+  const getCategoryName = (category: Category | string): string => {
+    if (typeof category === "string") {
+      return category;
+    }
+    return category?.name || "Unknown Category";
+  };
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -190,7 +225,9 @@ export function SeekerMyBookings() {
                   <CardTitle className="text-lg">
                     {booking.service.title}
                   </CardTitle>
-                  <CardDescription>{booking.service.category}</CardDescription>
+                  <CardDescription>
+                    {getCategoryName(booking.service.category)}
+                  </CardDescription>
                 </div>
                 {getStatusBadge(booking.status)}
               </div>
@@ -218,6 +255,41 @@ export function SeekerMyBookings() {
                       </div>
                       <div className="text-sm text-gray-500">Total Amount</div>
                     </div>
+                    {/* Payment Status */}
+                    {booking.payment && (
+                      <div className="text-right">
+                        <div className="flex items-center justify-end text-sm">
+                          {booking.payment.status === "COMPLETED" && (
+                            <CheckCircle className="h-4 w-4 mr-1 text-green-600" />
+                          )}
+                          {booking.payment.status === "PENDING" && (
+                            <Clock className="h-4 w-4 mr-1 text-yellow-600" />
+                          )}
+                          {booking.payment.status === "FAILED" && (
+                            <AlertCircle className="h-4 w-4 mr-1 text-red-600" />
+                          )}
+                          <span
+                            className={`font-medium ${
+                              booking.payment.status === "COMPLETED"
+                                ? "text-green-600"
+                                : booking.payment.status === "PENDING"
+                                ? "text-yellow-600"
+                                : booking.payment.status === "FAILED"
+                                ? "text-red-600"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            {booking.payment.status === "COMPLETED"
+                              ? "Paid"
+                              : booking.payment.status === "PENDING"
+                              ? "Payment Required"
+                              : booking.payment.status === "FAILED"
+                              ? "Payment Failed"
+                              : booking.payment.status}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -236,6 +308,15 @@ export function SeekerMyBookings() {
                         onClick={() => handleCancelBooking(booking.id)}
                       >
                         Cancel
+                      </Button>
+                    )}
+                    {booking.status === "CONFIRMED" && !booking.payment && (
+                      <Button
+                        size="sm"
+                        onClick={() => setSelectedBookingForPayment(booking)}
+                      >
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Pay Now
                       </Button>
                     )}
                     {booking.status !== "CANCELLED" && (
@@ -277,6 +358,25 @@ export function SeekerMyBookings() {
             <p className="text-gray-500">No bookings found.</p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Payment Component */}
+      {selectedBookingForPayment && (
+        <SeekerPayment
+          bookingId={selectedBookingForPayment.id}
+          onPaymentComplete={(payment) => {
+            // Update the booking with payment information
+            setBookings((prev) =>
+              prev.map((booking) =>
+                booking.id === selectedBookingForPayment.id
+                  ? { ...booking, payment }
+                  : booking
+              )
+            );
+            setSelectedBookingForPayment(null);
+          }}
+          onPaymentCancel={() => setSelectedBookingForPayment(null)}
+        />
       )}
     </div>
   );

@@ -69,10 +69,23 @@ interface PlatformAnalytics {
   }>;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 function AdminAnalytics() {
   const [analytics, setAnalytics] = useState<PlatformAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState("30");
+
+  const getCategoryName = (category: Category | string): string => {
+    if (typeof category === "string") {
+      return category;
+    }
+    return category?.name || "Unknown Category";
+  };
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -155,8 +168,9 @@ function AdminAnalytics() {
               0
             );
             if (revenue > 0) {
-              categoryRevenue[service.category] =
-                (categoryRevenue[service.category] || 0) + revenue;
+              const categoryName = getCategoryName(service.category);
+              categoryRevenue[categoryName] =
+                (categoryRevenue[categoryName] || 0) + revenue;
             }
           });
 
@@ -188,13 +202,12 @@ function AdminAnalytics() {
               revenue: payments
                 .filter((p: any) => p.booking?.service?.id === service.id)
                 .reduce((sum: number, p: any) => sum + p.amount, 0),
-              category: service.category,
+              category: getCategoryName(service.category),
             })),
             topProviders: [], // Would need more complex queries
             categoryStats: services.reduce((acc: any[], service: any) => {
-              const existing = acc.find(
-                (cat) => cat.category === service.category
-              );
+              const categoryName = getCategoryName(service.category);
+              const existing = acc.find((cat) => cat.category === categoryName);
               if (existing) {
                 existing.services++;
                 existing.bookings += service._count?.bookings || 0;
@@ -203,7 +216,7 @@ function AdminAnalytics() {
                 );
               } else {
                 acc.push({
-                  category: service.category,
+                  category: categoryName,
                   services: 1,
                   bookings: service._count?.bookings || 0,
                   avgPrice: service.price,

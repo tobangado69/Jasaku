@@ -18,6 +18,12 @@ import {
   MessageCircle,
 } from "lucide-react";
 
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 interface Booking {
   id: string;
   status: "PENDING" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
@@ -28,7 +34,7 @@ interface Booking {
   service: {
     id: string;
     title: string;
-    category: string;
+    category: Category | string;
   };
   customer: {
     id: string;
@@ -46,6 +52,13 @@ interface Booking {
 export function ProviderBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const getCategoryName = (category: Category | string): string => {
+    if (typeof category === "string") {
+      return category;
+    }
+    return category?.name || "Unknown Category";
+  };
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -241,7 +254,9 @@ export function ProviderBookings() {
                 </CardTitle>
                 {getStatusBadge(booking.status)}
               </div>
-              <CardDescription>{booking.service.category}</CardDescription>
+              <CardDescription>
+                {getCategoryName(booking.service.category)}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">

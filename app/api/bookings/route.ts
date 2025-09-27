@@ -3,11 +3,19 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { z } from "zod"
+import { CoreApi } from "midtrans-client"
+
+const midtrans = new CoreApi({
+  isProduction: false,
+  serverKey: process.env.MIDTRANS_SERVER_KEY!,
+  clientKey: process.env.MIDTRANS_CLIENT_KEY!,
+})
 
 const createBookingSchema = z.object({
   serviceId: z.string(),
   scheduledAt: z.string().datetime(),
   notes: z.string().optional(),
+  location: z.string().optional(),
 })
 
 const updateBookingSchema = z.object({
@@ -132,6 +140,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Time slot is already booked" }, { status: 400 })
     }
 
+    // Create the booking first
     const booking = await prisma.booking.create({
       data: {
         serviceId: validatedData.serviceId,
@@ -141,43 +150,109 @@ export async function POST(request: NextRequest) {
         notes: validatedData.notes,
         totalAmount: service.price,
         status: "PENDING"
-      },
-      include: {
-        service: {
-          select: {
-            id: true,
-            title: true,
-            category: true,
-            provider: {
-              select: {
-                id: true,
-                name: true,
-                profileImage: true,
-                phone: true
-              }
-            }
-          }
-        },
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            profileImage: true,
-            phone: true
-          }
-        },
-        provider: {
-          select: {
-            id: true,
-            name: true,
-            profileImage: true,
-            phone: true
-          }
-        }
       }
     })
 
-    return NextResponse.json(booking, { status: 201 })
+    // Create payment record
+    const payment = await prisma.payment.create({
+      data: {
+        bookingId: booking.id,
+        amount: service.price,
+        paymentMethod: "qris", // Default to QRIS, user will choose on Midtrans page
+        status: "PENDING"
+      }
+    })
+
+    // Create Midtrans transaction
+    const parameter = {
+      payment_type: "qris", // Default to QRIS for Indonesian market
+      transaction_details: {
+        order_id: `JASAKU-${booking.id}-${Date.now()}`,
+        gross_amount: service.price,
+      },
+      customer_details: {
+        first_name: (session.user as any)?.name?.split(" ")[0] || "Customer",
+        email: (session.user as any)?.email,
+      },
+      item_details: [{
+        id: service.id,
+        price: service.price,
+        quantity: 1,
+        name: service.title,
+      }],
+      qris: {
+        acquirer: "gopay" // Can be gopay, shopeepay, etc.
+      }
+    }
+
+    try {
+      const transaction = await midtrans.charge(parameter)
+
+      // Update payment with transaction details
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          transactionId: transaction.transaction_id,
+          status: "PROCESSING"
+        }
+      })
+
+      // Get complete booking with payment info
+      const completeBooking = await prisma.booking.findUnique({
+        where: { id: booking.id },
+        include: {
+          service: {
+            select: {
+              id: true,
+              title: true,
+              category: true,
+              provider: {
+                select: {
+                  id: true,
+                  name: true,
+                  profileImage: true,
+                  phone: true
+                }
+              }
+            }
+          },
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              profileImage: true,
+              phone: true
+            }
+          },
+          provider: {
+            select: {
+              id: true,
+              name: true,
+              profileImage: true,
+              phone: true
+            }
+          },
+          payment: true
+        }
+      })
+
+      return NextResponse.json({
+        booking: completeBooking,
+        midtransTransaction: transaction
+      }, { status: 201 })
+
+    } catch (midtransError) {
+      console.error("Midtrans error:", midtransError)
+
+      // Delete booking and payment if Midtrans fails
+      await prisma.payment.delete({ where: { id: payment.id } })
+      await prisma.booking.delete({ where: { id: booking.id } })
+
+      return NextResponse.json({
+        error: "Payment processing failed. Please try again.",
+        details: midtransError
+      }, { status: 500 })
+    }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 })
