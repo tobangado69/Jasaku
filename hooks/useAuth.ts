@@ -2,36 +2,84 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useCallback, useMemo } from "react";
+import { Session } from "next-auth";
 
-export function useAuth() {
+/**
+ * User type from session
+ */
+export type AuthUser = Session["user"];
+
+/**
+ * Role type
+ */
+export type UserRole = "SEEKER" | "PROVIDER" | "ADMIN";
+
+/**
+ * Auth hook return type
+ */
+export interface UseAuthReturn {
+  user: AuthUser | undefined;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  session: Session | null;
+  logout: () => Promise<void>;
+  hasRole: (role: UserRole | UserRole[]) => boolean;
+  isAdmin: boolean;
+  isProvider: boolean;
+  isSeeker: boolean;
+}
+
+/**
+ * Main authentication hook
+ * Provides user session data and authentication status
+ */
+export function useAuth(): UseAuthReturn {
   const { data: session, status } = useSession();
-  const router = useRouter();
 
   const isLoading = status === "loading";
   const isAuthenticated = !!session?.user;
   const user = session?.user;
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await signOut({ callbackUrl: "/" });
-  };
+  }, []);
+
+  const hasRole = useCallback((role: UserRole | UserRole[]): boolean => {
+    if (!user) return false;
+    const roles = Array.isArray(role) ? role : [role];
+    return roles.includes(user.role);
+  }, [user]);
+
+  const isAdmin = useMemo(() => user?.role === "ADMIN", [user]);
+  const isProvider = useMemo(() => user?.role === "PROVIDER", [user]);
+  const isSeeker = useMemo(() => user?.role === "SEEKER", [user]);
 
   return {
     user,
     isAuthenticated,
     isLoading,
-    session,
+    session: session || null,
     logout,
+    hasRole,
+    isAdmin,
+    isProvider,
+    isSeeker,
   };
 }
 
-export function useRequireAuth() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+/**
+ * Hook that requires authentication
+ * Redirects to sign-in page if not authenticated
+ */
+export function useRequireAuth(): Omit<UseAuthReturn, "session" | "logout"> {
+  const { user, isAuthenticated, isLoading, hasRole, isAdmin, isProvider, isSeeker } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push("/auth/signin");
+      const returnUrl = encodeURIComponent(window.location.pathname);
+      router.push(`/auth/signin?returnUrl=${returnUrl}`);
     }
   }, [isAuthenticated, isLoading, router]);
 
@@ -39,26 +87,64 @@ export function useRequireAuth() {
     user,
     isAuthenticated,
     isLoading,
+    hasRole,
+    isAdmin,
+    isProvider,
+    isSeeker,
   };
 }
 
-export function useRoleGuard(allowedRoles: string[]) {
-  const { user, isAuthenticated, isLoading } = useRequireAuth();
+/**
+ * Hook that requires specific role(s)
+ * Redirects to unauthorized page if user doesn't have required role
+ */
+export function useRoleGuard(
+  allowedRoles: UserRole | UserRole[]
+): Omit<UseAuthReturn, "session" | "logout"> & { hasAccess: boolean } {
+  const { user, isAuthenticated, isLoading, hasRole, isAdmin, isProvider, isSeeker } = useRequireAuth();
   const router = useRouter();
 
+  const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+  const hasAccess = useMemo(() => {
+    if (!user) return false;
+    return roles.includes(user.role);
+  }, [user, roles]);
+
   useEffect(() => {
-    if (!isLoading && isAuthenticated && user) {
-      const userRole = (user as any)?.role;
-      if (!allowedRoles.includes(userRole)) {
-        router.push("/unauthorized");
-      }
+    if (!isLoading && isAuthenticated && !hasAccess) {
+      router.push("/unauthorized");
     }
-  }, [user, isAuthenticated, isLoading, allowedRoles, router]);
+  }, [isAuthenticated, isLoading, hasAccess, router]);
 
   return {
     user,
     isAuthenticated,
     isLoading,
-    hasAccess: allowedRoles.includes((user as any)?.role),
+    hasAccess,
+    hasRole,
+    isAdmin,
+    isProvider,
+    isSeeker,
   };
+}
+
+/**
+ * Hook for admin-only pages
+ */
+export function useAdminGuard() {
+  return useRoleGuard("ADMIN");
+}
+
+/**
+ * Hook for provider-only pages
+ */
+export function useProviderGuard() {
+  return useRoleGuard("PROVIDER");
+}
+
+/**
+ * Hook for seeker-only pages
+ */
+export function useSeekerGuard() {
+  return useRoleGuard("SEEKER");
 }

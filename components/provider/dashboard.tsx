@@ -8,6 +8,47 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  AreaChart,
+  Area,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from "recharts";
+import {
+  DollarSign,
+  Calendar,
+  Package,
+  Star,
+  MoreHorizontal,
+} from "lucide-react";
+
+// Mock data for earnings chart
+const earningsData = [
+  { month: "Jan", earnings: 1200 },
+  { month: "Feb", earnings: 1800 },
+  { month: "Mar", earnings: 1500 },
+  { month: "Apr", earnings: 2200 },
+  { month: "May", earnings: 2500 },
+  { month: "Jun", earnings: 2300 },
+];
 
 interface ProviderStats {
   totalBookings: number;
@@ -110,8 +151,8 @@ export function ProviderDashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="space-y-6 w-full px-4 sm:px-6 lg:px-8">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 w-full">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -139,7 +180,7 @@ export function ProviderDashboard() {
 
   if (!stats) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 w-full px-4 sm:px-6 lg:px-8">
         <p className="text-center text-muted-foreground">
           Failed to load dashboard data.
         </p>
@@ -147,97 +188,141 @@ export function ProviderDashboard() {
     );
   }
 
+  const kpiData = [
+    {
+      label: "Total Earnings",
+      value: `Rp ${stats.totalEarnings.toLocaleString()}`,
+      description: "All-time earnings",
+      icon: DollarSign,
+    },
+    {
+      label: "Total Bookings",
+      value: stats.totalBookings,
+      description: "All-time bookings",
+      icon: Calendar,
+    },
+    {
+      label: "Active Services",
+      value: stats.activeServices,
+      description: `${stats.pendingServices} pending`,
+      icon: Package,
+    },
+    {
+      label: "Average Rating",
+      value: stats.averageRating,
+      description: `from ${stats.totalReviews} reviews`,
+      icon: Star,
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* KPI Cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {kpiData.map((item, index) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {item.label}
+              </CardTitle>
+              <item.icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{item.value}</div>
+              <p className="text-xs text-muted-foreground">
+                {item.description}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Bookings
-            </CardTitle>
+          <CardHeader>
+            <CardTitle>Earnings</CardTitle>
+            <CardDescription>
+              Your earnings over the last 6 months.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalBookings}</div>
-            <p className="text-xs text-muted-foreground">All time bookings</p>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={earningsData}>
+                <defs>
+                  <linearGradient
+                    id="colorEarnings"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Area
+                  type="monotone"
+                  dataKey="earnings"
+                  stroke="#10b981"
+                  fillOpacity={1}
+                  fill="url(#colorEarnings)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Earnings</CardTitle>
+          <CardHeader>
+            <CardTitle>Recent Bookings</CardTitle>
+            <CardDescription>Your 5 most recent bookings.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              Rp {stats.totalEarnings.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Total completed payments
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Active Services
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.activeServices}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.pendingServices} pending approval
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rating</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.averageRating}</div>
-            <p className="text-xs text-muted-foreground">
-              Based on {stats.totalReviews} reviews
-            </p>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stats.recentBookings.map((booking) => (
+                  <TableRow key={booking.id}>
+                    <TableCell>
+                      <div className="font-medium">{booking.customer.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(booking.scheduledAt).toLocaleDateString()}
+                      </div>
+                    </TableCell>
+                    <TableCell>{booking.service.title}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{booking.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>View Details</DropdownMenuItem>
+                          <DropdownMenuItem>Contact Customer</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Bookings</CardTitle>
-          <CardDescription>Your latest service bookings</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {stats.recentBookings.length > 0 ? (
-            <div className="space-y-4">
-              {stats.recentBookings.map((booking) => (
-                <div
-                  key={booking.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium">{booking.service.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {booking.customer.name} •{" "}
-                      {new Date(booking.scheduledAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">
-                      Rp {booking.totalAmount.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {booking.status}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground">
-              No recent bookings to display.
-            </p>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

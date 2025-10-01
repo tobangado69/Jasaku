@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Calendar,
   CheckCircle,
@@ -52,6 +53,7 @@ interface Booking {
 export function ProviderBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("ALL");
 
   const getCategoryName = (category: Category | string): string => {
     if (typeof category === "string") {
@@ -223,7 +225,7 @@ export function ProviderBookings() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
           <Card key={i} className="animate-pulse">
             <CardHeader>
@@ -244,104 +246,447 @@ export function ProviderBookings() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {bookings.map((booking) => (
-          <Card key={booking.id}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">
-                  {booking.service.title}
-                </CardTitle>
-                {getStatusBadge(booking.status)}
-              </div>
-              <CardDescription>
-                {getCategoryName(booking.service.category)}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center text-sm text-gray-600">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  {new Date(booking.scheduledAt).toLocaleDateString()} at{" "}
-                  {new Date(booking.scheduledAt).toLocaleTimeString()}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="ALL">All</TabsTrigger>
+          <TabsTrigger value="PENDING">Pending</TabsTrigger>
+          <TabsTrigger value="CONFIRMED">Confirmed</TabsTrigger>
+          <TabsTrigger value="IN_PROGRESS">In Progress</TabsTrigger>
+          <TabsTrigger value="COMPLETED">Completed</TabsTrigger>
+          <TabsTrigger value="CANCELLED">Cancelled</TabsTrigger>
+        </TabsList>
+        <TabsContent value="ALL" className="mt-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {bookings.map((booking) => (
+              <Card key={booking.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">
+                      {booking.service.title}
+                    </CardTitle>
+                    {getStatusBadge(booking.status)}
+                  </div>
+                  <CardDescription>
+                    {getCategoryName(booking.service.category)}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      {new Date(
+                        booking.scheduledAt
+                      ).toLocaleDateString()} at{" "}
+                      {new Date(booking.scheduledAt).toLocaleTimeString()}
+                    </div>
+                    <div className="text-sm">
+                      <strong>Customer:</strong> {booking.customer.name}
+                    </div>
+                    {booking.notes && (
+                      <div className="text-sm text-gray-600">
+                        <strong>Notes:</strong> {booking.notes}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+                <div className="p-6 pt-0">
+                  {booking.status === "PENDING" && (
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        size="sm"
+                        onClick={() => handleAcceptBooking(booking.id)}
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDeclineBooking(booking.id)}
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  )}
+
+                  {booking.status === "CONFIRMED" && (
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        size="sm"
+                        onClick={() => handleStartBooking(booking.id)}
+                      >
+                        Start Service
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleContactCustomer(booking.id)}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Contact
+                      </Button>
+                    </div>
+                  )}
+
+                  {booking.status === "IN_PROGRESS" && (
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        size="sm"
+                        onClick={() => handleCompleteBooking(booking.id)}
+                      >
+                        Complete Service
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleContactCustomer(booking.id)}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Contact
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                <div className="text-sm">
-                  <strong>Customer:</strong> {booking.customer.name}
-                </div>
-                {booking.notes && (
-                  <div className="text-sm text-gray-600">
-                    <strong>Notes:</strong> {booking.notes}
-                  </div>
-                )}
+              </Card>
+            ))}
+          </div>
 
-                {booking.status === "PENDING" && (
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      size="sm"
-                      onClick={() => handleAcceptBooking(booking.id)}
-                    >
-                      Accept
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDeclineBooking(booking.id)}
-                    >
-                      Decline
-                    </Button>
+          {bookings.length === 0 && (
+            <Card>
+              <CardContent className="text-center py-8">
+                <p className="text-gray-500">No bookings found.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+        <TabsContent value="PENDING" className="mt-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {bookings
+              .filter((booking) => booking.status === "PENDING")
+              .map((booking) => (
+                <Card key={booking.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">
+                        {booking.service.title}
+                      </CardTitle>
+                      {getStatusBadge(booking.status)}
+                    </div>
+                    <CardDescription>
+                      {getCategoryName(booking.service.category)}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {new Date(
+                          booking.scheduledAt
+                        ).toLocaleDateString()} at{" "}
+                        {new Date(booking.scheduledAt).toLocaleTimeString()}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Customer:</strong> {booking.customer.name}
+                      </div>
+                      {booking.notes && (
+                        <div className="text-sm text-gray-600">
+                          <strong>Notes:</strong> {booking.notes}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                  <div className="p-6 pt-0">
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        size="sm"
+                        onClick={() => handleAcceptBooking(booking.id)}
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDeclineBooking(booking.id)}
+                      >
+                        Decline
+                      </Button>
+                    </div>
                   </div>
-                )}
+                </Card>
+              ))}
+          </div>
 
-                {booking.status === "CONFIRMED" && (
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      size="sm"
-                      onClick={() => handleStartBooking(booking.id)}
-                    >
-                      Start Service
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleContactCustomer(booking.id)}
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Contact
-                    </Button>
+          {bookings.filter((booking) => booking.status === "PENDING").length ===
+            0 && (
+            <Card>
+              <CardContent className="text-center py-8">
+                <p className="text-gray-500">No pending bookings found.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+        <TabsContent value="CONFIRMED" className="mt-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {bookings
+              .filter((booking) => booking.status === "CONFIRMED")
+              .map((booking) => (
+                <Card key={booking.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">
+                        {booking.service.title}
+                      </CardTitle>
+                      {getStatusBadge(booking.status)}
+                    </div>
+                    <CardDescription>
+                      {getCategoryName(booking.service.category)}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {new Date(
+                          booking.scheduledAt
+                        ).toLocaleDateString()} at{" "}
+                        {new Date(booking.scheduledAt).toLocaleTimeString()}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Customer:</strong> {booking.customer.name}
+                      </div>
+                      {booking.notes && (
+                        <div className="text-sm text-gray-600">
+                          <strong>Notes:</strong> {booking.notes}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                  <div className="p-6 pt-0">
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        size="sm"
+                        onClick={() => handleStartBooking(booking.id)}
+                      >
+                        Start Service
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleContactCustomer(booking.id)}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Contact
+                      </Button>
+                    </div>
                   </div>
-                )}
+                </Card>
+              ))}
+          </div>
 
-                {booking.status === "IN_PROGRESS" && (
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      size="sm"
-                      onClick={() => handleCompleteBooking(booking.id)}
-                    >
-                      Complete Service
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleContactCustomer(booking.id)}
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Contact
-                    </Button>
+          {bookings.filter((booking) => booking.status === "CONFIRMED")
+            .length === 0 && (
+            <Card>
+              <CardContent className="text-center py-8">
+                <p className="text-gray-500">No confirmed bookings found.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+        <TabsContent value="IN_PROGRESS" className="mt-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {bookings
+              .filter((booking) => booking.status === "IN_PROGRESS")
+              .map((booking) => (
+                <Card key={booking.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">
+                        {booking.service.title}
+                      </CardTitle>
+                      {getStatusBadge(booking.status)}
+                    </div>
+                    <CardDescription>
+                      {getCategoryName(booking.service.category)}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {new Date(
+                          booking.scheduledAt
+                        ).toLocaleDateString()} at{" "}
+                        {new Date(booking.scheduledAt).toLocaleTimeString()}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Customer:</strong> {booking.customer.name}
+                      </div>
+                      {booking.notes && (
+                        <div className="text-sm text-gray-600">
+                          <strong>Notes:</strong> {booking.notes}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                  <div className="p-6 pt-0">
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        size="sm"
+                        onClick={() => handleCompleteBooking(booking.id)}
+                      >
+                        Complete Service
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleContactCustomer(booking.id)}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Contact
+                      </Button>
+                    </div>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                </Card>
+              ))}
+          </div>
 
-      {bookings.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-gray-500">No bookings found.</p>
-          </CardContent>
-        </Card>
-      )}
+          {bookings.filter((booking) => booking.status === "IN_PROGRESS")
+            .length === 0 && (
+            <Card>
+              <CardContent className="text-center py-8">
+                <p className="text-gray-500">No in-progress bookings found.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+        <TabsContent value="COMPLETED" className="mt-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {bookings
+              .filter((booking) => booking.status === "COMPLETED")
+              .map((booking) => (
+                <Card key={booking.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">
+                        {booking.service.title}
+                      </CardTitle>
+                      {getStatusBadge(booking.status)}
+                    </div>
+                    <CardDescription>
+                      {getCategoryName(booking.service.category)}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {new Date(
+                          booking.scheduledAt
+                        ).toLocaleDateString()} at{" "}
+                        {new Date(booking.scheduledAt).toLocaleTimeString()}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Customer:</strong> {booking.customer.name}
+                      </div>
+                      {booking.notes && (
+                        <div className="text-sm text-gray-600">
+                          <strong>Notes:</strong> {booking.notes}
+                        </div>
+                      )}
+                      {booking.completedAt && (
+                        <div className="text-sm text-green-600">
+                          <strong>Completed:</strong>{" "}
+                          {new Date(booking.completedAt).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                  <div className="p-6 pt-0">
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleContactCustomer(booking.id)}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Contact
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+          </div>
+
+          {bookings.filter((booking) => booking.status === "COMPLETED")
+            .length === 0 && (
+            <Card>
+              <CardContent className="text-center py-8">
+                <p className="text-gray-500">No completed bookings found.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+        <TabsContent value="CANCELLED" className="mt-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {bookings
+              .filter((booking) => booking.status === "CANCELLED")
+              .map((booking) => (
+                <Card key={booking.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">
+                        {booking.service.title}
+                      </CardTitle>
+                      {getStatusBadge(booking.status)}
+                    </div>
+                    <CardDescription>
+                      {getCategoryName(booking.service.category)}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {new Date(
+                          booking.scheduledAt
+                        ).toLocaleDateString()} at{" "}
+                        {new Date(booking.scheduledAt).toLocaleTimeString()}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Customer:</strong> {booking.customer.name}
+                      </div>
+                      {booking.notes && (
+                        <div className="text-sm text-gray-600">
+                          <strong>Notes:</strong> {booking.notes}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                  <div className="p-6 pt-0">
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleContactCustomer(booking.id)}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Contact
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+          </div>
+
+          {bookings.filter((booking) => booking.status === "CANCELLED")
+            .length === 0 && (
+            <Card>
+              <CardContent className="text-center py-8">
+                <p className="text-gray-500">No cancelled bookings found.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

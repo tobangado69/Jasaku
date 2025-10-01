@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { LogIn, Mail, Lock } from "lucide-react";
+import Link from "next/link";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -39,17 +40,25 @@ export default function SignInPage() {
       } else {
         // Get the session to determine user role
         const session = await getSession();
-        const userRole = (session?.user as any)?.role?.toLowerCase();
+        const userRole = session?.user?.role?.toLowerCase();
 
-        // Redirect based on role
-        if (userRole === "provider") {
-          router.push("/provider");
-        } else if (userRole === "seeker") {
-          router.push("/seeker");
-        } else if (userRole === "admin") {
-          router.push("/admin");
+        // Check for return URL
+        const searchParams = new URLSearchParams(window.location.search);
+        const returnUrl = searchParams.get("returnUrl");
+
+        if (returnUrl) {
+          router.push(decodeURIComponent(returnUrl));
         } else {
-          router.push("/");
+          // Redirect based on role
+          if (userRole === "provider") {
+            router.push("/provider");
+          } else if (userRole === "seeker") {
+            router.push("/seeker");
+          } else if (userRole === "admin") {
+            router.push("/admin");
+          } else {
+            router.push("/");
+          }
         }
       }
     } catch (err) {
@@ -60,79 +69,75 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">J</span>
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="w-full max-w-md p-8 space-y-8 bg-white shadow-lg rounded-xl">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold">Login</h1>
+          <p className="mt-2 text-balance text-muted-foreground">
+            Enter your email below to login to your account
+          </p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="p-4 text-sm text-red-700 bg-red-100 border border-red-200 rounded-md">
+              {error}
             </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="m@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full px-4 py-2 border rounded-md"
+            />
           </div>
-          <CardTitle className="text-2xl">Welcome to Jasaku</CardTitle>
-          <CardDescription>Sign in to your account to continue</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
-                {error}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
               <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
+              <Link
+                href="/forgot-password"
+                className="text-sm text-primary hover:underline"
+              >
+                Forgot your password?
+              </Link>
             </div>
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-              ) : (
-                <LogIn className="h-4 w-4 mr-2" />
-              )}
-              {loading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center text-sm text-gray-600">
-            <p>Demo credentials:</p>
-            <p className="font-mono text-xs mt-1">
-              Provider: provider@jasaku.com / password
-              <br />
-              Seeker: seeker@jasaku.com / password
-              <br />
-              Admin: admin@jasaku.com / password
-            </p>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full px-4 py-2 border rounded-md"
+            />
           </div>
-        </CardContent>
-      </Card>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Signing in..." : "Login"}
+          </Button>
+          <Button variant="outline" className="w-full">
+            Login with Google
+          </Button>
+        </form>
+        <div className="mt-6 text-center text-sm">
+          Don&apos;t have an account?{" "}
+          <Link href="#" className="underline">
+            Sign up
+          </Link>
+        </div>
+        <div className="mt-6 text-sm text-center text-gray-600">
+          <p>Demo credentials:</p>
+          <p className="mt-1 font-mono text-xs">
+            Provider: provider@jasaku.com / password
+            <br />
+            Seeker: seeker@jasaku.com / password
+            <br />
+            Admin: admin@jasaku.com / password
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -11,6 +11,23 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AreaChart,
+  Area,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  BarChart,
+  Bar,
+} from "recharts";
+import {
   TrendingUp,
   TrendingDown,
   Users,
@@ -33,7 +50,25 @@ import {
   Zap,
   Target,
   Award,
+  Info,
+  ChevronDown,
+  Calendar as CalendarIcon,
+  TrendingUp as TrendingUpIcon,
+  ArrowLeft,
+  ArrowRight,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+
+interface ChartData {
+  month: string;
+  [key: string]: any;
+}
 
 interface DashboardStats {
   totalUsers: number;
@@ -48,6 +83,20 @@ interface DashboardStats {
   averageRating?: number;
   activeProviders?: number;
   activeSeekers?: number;
+  previousMonthUsers?: number;
+  previousMonthRevenue?: number;
+  previousMonthBookings?: number;
+  previousMonthServices?: number;
+  currentMonthUsers?: number;
+  currentMonthRevenue?: number;
+  currentMonthBookings?: number;
+  currentMonthServices?: number;
+  // New month-specific comparison fields
+  previousMonthActiveProviders?: number;
+  previousMonthSupportTickets?: number;
+  previousMonthAverageRating?: number;
+  currentCompletionRate?: number;
+  previousCompletionRate?: number;
 }
 
 interface MatrixData {
@@ -58,19 +107,129 @@ interface MatrixData {
   icon: React.ReactNode;
   color: string;
   bgColor: string;
+  description?: string;
+  previousValue?: number;
+  currentValue?: number;
+  changeType?: "percentage" | "absolute" | "ratio";
+}
+
+interface KpiDataItem {
+  label: string;
+  value: string | number;
+  change: {
+    change: number;
+    trend: "up" | "down" | "neutral";
+  };
+  icon: React.ElementType;
+  color: string;
+  description: string;
+  changeType?: "percentage" | "absolute" | "ratio";
 }
 
 export function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [charts, setCharts] = useState<{
+    revenue: ChartData[];
+    users: ChartData[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+
+  // Month restriction utilities
+  const getCurrentMonth = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}`;
+  };
+
+  const getMaxSelectableMonth = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}`;
+  };
+
+  const getMinSelectableMonth = () => {
+    const now = new Date();
+    const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+    return `${twoYearsAgo.getFullYear()}-${String(
+      twoYearsAgo.getMonth() + 1
+    ).padStart(2, "0")}`;
+  };
+
+  // Filter states
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    return getCurrentMonth();
+  });
+  const [comparisonPeriod, setComparisonPeriod] = useState<
+    "previous" | "same_last_year"
+  >("previous");
+  const [monthError, setMonthError] = useState<string | null>(null);
+
+  // Month selection handler with validation
+  const handleMonthChange = (newMonth: string) => {
+    setMonthError(null);
+
+    const maxMonth = getMaxSelectableMonth();
+    const minMonth = getMinSelectableMonth();
+
+    if (newMonth > maxMonth) {
+      setMonthError(
+        "Cannot select future months. Analytics data is only available for current and past months."
+      );
+      setSelectedMonth(maxMonth);
+      return;
+    }
+
+    if (newMonth < minMonth) {
+      setMonthError("Historical data is limited to the last 24 months.");
+      setSelectedMonth(minMonth);
+      return;
+    }
+
+    setSelectedMonth(newMonth);
+  };
+
+  // Navigation helpers
+  const goToPreviousMonth = () => {
+    const current = new Date(selectedMonth + "-01");
+    const previous = new Date(current.getFullYear(), current.getMonth() - 1, 1);
+    const previousMonthStr = `${previous.getFullYear()}-${String(
+      previous.getMonth() + 1
+    ).padStart(2, "0")}`;
+    handleMonthChange(previousMonthStr);
+  };
+
+  const goToNextMonth = () => {
+    const current = new Date(selectedMonth + "-01");
+    const next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+    const nextMonthStr = `${next.getFullYear()}-${String(
+      next.getMonth() + 1
+    ).padStart(2, "0")}`;
+    handleMonthChange(nextMonthStr);
+  };
+
+  const goToCurrentMonth = () => {
+    handleMonthChange(getCurrentMonth());
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         setError(null);
-        const response = await fetch("/api/dashboard?type=admin");
+        const [year, month] = selectedMonth.split("-");
+        const response = await fetch(
+          `/api/dashboard?type=admin&year=${year}&month=${month}&comparison=${comparisonPeriod}`,
+          {
+            credentials: "include",
+          }
+        );
 
         if (response.ok) {
           const data = await response.json();
@@ -87,10 +246,35 @@ export function AdminDashboard() {
             averageRating: data.stats.averageRating,
             activeProviders: data.stats.activeProviders,
             activeSeekers: data.stats.activeSeekers,
+            previousMonthUsers: data.stats.previousMonthUsers,
+            previousMonthRevenue: data.stats.previousMonthRevenue,
+            previousMonthBookings: data.stats.previousMonthBookings,
+            previousMonthServices: data.stats.previousMonthServices,
+            currentMonthUsers: data.stats.currentMonthUsers,
+            currentMonthRevenue: data.stats.currentMonthRevenue,
+            currentMonthBookings: data.stats.currentMonthBookings,
+            currentMonthServices: data.stats.currentMonthServices,
+            // New month-specific comparison fields
+            previousMonthActiveProviders:
+              data.stats.previousMonthActiveProviders,
+            previousMonthSupportTickets: data.stats.previousMonthSupportTickets,
+            previousMonthAverageRating: data.stats.previousMonthAverageRating,
+            currentCompletionRate: data.stats.currentCompletionRate,
+            previousCompletionRate: data.stats.previousCompletionRate,
           });
+          setCharts(data.charts);
+          setLastUpdated(new Date());
         } else {
           const errorData = await response.json().catch(() => ({}));
-          setError(errorData.error || "Failed to fetch dashboard stats");
+
+          // Handle month selection errors specifically
+          if (response.status === 400 && errorData.error) {
+            setMonthError(errorData.error);
+            // Reset to current month if invalid month was selected
+            setSelectedMonth(getCurrentMonth());
+          } else {
+            setError(errorData.error || "Failed to fetch dashboard stats");
+          }
         }
       } catch (error) {
         setError("Network error: Unable to fetch dashboard stats");
@@ -101,14 +285,29 @@ export function AdminDashboard() {
     };
 
     fetchStats();
-  }, []);
+
+    // Auto-refresh every 15 seconds
+    const interval = setInterval(() => {
+      setIsAutoRefreshing(true);
+      fetchStats().finally(() => setIsAutoRefreshing(false));
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [selectedMonth, comparisonPeriod]);
 
   const refreshData = async () => {
     setRefreshing(true);
     try {
-      const response = await fetch("/api/dashboard?type=admin");
+      const [year, month] = selectedMonth.split("-");
+      const response = await fetch(
+        `/api/dashboard?type=admin&year=${year}&month=${month}&comparison=${comparisonPeriod}`,
+        {
+          credentials: "include",
+        }
+      );
       if (response.ok) {
         const data = await response.json();
+        console.log("Dashboard data refreshed:", data);
         setStats({
           totalUsers: data.stats.totalUsers,
           totalServices: data.stats.totalServices,
@@ -122,7 +321,26 @@ export function AdminDashboard() {
           averageRating: data.stats.averageRating,
           activeProviders: data.stats.activeProviders,
           activeSeekers: data.stats.activeSeekers,
+          previousMonthUsers: data.stats.previousMonthUsers,
+          previousMonthRevenue: data.stats.previousMonthRevenue,
+          previousMonthBookings: data.stats.previousMonthBookings,
+          previousMonthServices: data.stats.previousMonthServices,
+          currentMonthUsers: data.stats.currentMonthUsers,
+          currentMonthRevenue: data.stats.currentMonthRevenue,
+          currentMonthBookings: data.stats.currentMonthBookings,
+          currentMonthServices: data.stats.currentMonthServices,
+          // New month-specific comparison fields
+          previousMonthActiveProviders: data.stats.previousMonthActiveProviders,
+          previousMonthSupportTickets: data.stats.previousMonthSupportTickets,
+          previousMonthAverageRating: data.stats.previousMonthAverageRating,
+          currentCompletionRate: data.stats.currentCompletionRate,
+          previousCompletionRate: data.stats.previousCompletionRate,
         });
+        setCharts(data.charts);
+        setLastUpdated(new Date());
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Refresh API error:", errorData);
       }
     } catch (error) {
       console.error("Error refreshing data:", error);
@@ -131,94 +349,44 @@ export function AdminDashboard() {
     }
   };
 
-  const generateMatrixData = (stats: DashboardStats): MatrixData[] => {
-    const completionRate = stats.totalBookings
-      ? ((stats.completedBookings || 0) / stats.totalBookings) * 100
-      : 0;
+  // Helper function to calculate month-over-month percentage
+  const calculateMoMChange = (
+    current: number,
+    previous: number
+  ): { change: number; trend: "up" | "down" | "neutral" } => {
+    if (previous === 0) {
+      return {
+        change: current > 0 ? 100 : 0,
+        trend: current > 0 ? "up" : "neutral",
+      };
+    }
+    const percentage = Math.round(((current - previous) / previous) * 100);
+    return {
+      change: Math.abs(percentage),
+      trend: percentage > 0 ? "up" : percentage < 0 ? "down" : "neutral",
+    };
+  };
 
-    return [
-      {
-        label: "Total Users",
-        value: stats.totalUsers.toLocaleString(),
-        change: 12,
-        trend: "up",
-        icon: <Users className="h-4 w-4" />,
-        color: "text-blue-600",
-        bgColor: "bg-blue-50",
-      },
-      {
-        label: "Active Providers",
-        value: (stats.activeProviders || 0).toLocaleString(),
-        change: 8,
-        trend: "up",
-        icon: <Briefcase className="h-4 w-4" />,
-        color: "text-green-600",
-        bgColor: "bg-green-50",
-      },
-      {
-        label: "Total Services",
-        value: stats.totalServices.toLocaleString(),
-        change: stats.pendingServices > 0 ? -stats.pendingServices : 0,
-        trend: stats.pendingServices > 0 ? "down" : "neutral",
-        icon: <Activity className="h-4 w-4" />,
-        color: "text-purple-600",
-        bgColor: "bg-purple-50",
-      },
-      {
-        label: "Total Revenue",
-        value: `Rp ${stats.totalRevenue.toLocaleString()}`,
-        change: stats.monthlyRevenue
-          ? Math.round((stats.monthlyRevenue / stats.totalRevenue) * 100)
-          : 0,
-        trend: "up",
-        icon: <DollarSign className="h-4 w-4" />,
-        color: "text-emerald-600",
-        bgColor: "bg-emerald-50",
-      },
-      {
-        label: "Total Bookings",
-        value: (stats.totalBookings || 0).toLocaleString(),
-        change: Math.round(completionRate),
-        trend: completionRate > 70 ? "up" : "neutral",
-        icon: <Calendar className="h-4 w-4" />,
-        color: "text-orange-600",
-        bgColor: "bg-orange-50",
-      },
-      {
-        label: "Support Tickets",
-        value: stats.supportTickets.toLocaleString(),
-        change: stats.openTickets,
-        trend:
-          stats.openTickets > stats.supportTickets / 2 ? "down" : "neutral",
-        icon: <MessageSquare className="h-4 w-4" />,
-        color: "text-red-700",
-        bgColor: "bg-red-50",
-      },
-      {
-        label: "Completion Rate",
-        value: `${Math.round(completionRate)}%`,
-        change: Math.round(completionRate - 75),
-        trend: completionRate > 75 ? "up" : "down",
-        icon: <TrendingUp className="h-4 w-4" />,
-        color: "text-indigo-600",
-        bgColor: "bg-indigo-50",
-      },
-      {
-        label: "Avg Rating",
-        value: (stats.averageRating || 0).toFixed(1),
-        change: Math.round((stats.averageRating || 0) - 4),
-        trend: (stats.averageRating || 0) > 4 ? "up" : "neutral",
-        icon: <TrendingUp className="h-4 w-4" />,
-        color: "text-yellow-600",
-        bgColor: "bg-yellow-50",
-      },
-    ];
+  // Helper function to format change display
+  const formatChangeDisplay = (
+    change: number,
+    trend: "up" | "down" | "neutral",
+    type: "percentage" | "absolute" | "ratio" = "percentage"
+  ): string => {
+    const sign = trend === "up" ? "+" : trend === "down" ? "-" : "";
+    if (type === "percentage") {
+      return `${sign}${change}%`;
+    } else if (type === "absolute") {
+      return `${sign}${change.toLocaleString()}`;
+    } else {
+      return `${change.toFixed(1)}x`;
+    }
   };
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="space-y-6 w-full px-4 sm:px-6 lg:px-8">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 w-full">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -246,7 +414,7 @@ export function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 w-full px-4 sm:px-6 lg:px-8">
         <div className="rounded-lg border border-red-300 bg-red-50 p-4">
           <div className="flex">
             <div className="ml-3">
@@ -273,7 +441,7 @@ export function AdminDashboard() {
 
   if (!stats) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 w-full">
         <p className="text-center text-muted-foreground">
           Failed to load dashboard data.
         </p>
@@ -281,442 +449,370 @@ export function AdminDashboard() {
     );
   }
 
-  const matrixData = generateMatrixData(stats);
+  const completionRate =
+    stats.totalBookings && stats.totalBookings > 0
+      ? Math.round((stats.completedBookings! / stats.totalBookings!) * 100)
+      : 0;
+
+  const kpiData: KpiDataItem[] = [
+    {
+      label: "New Users This Month",
+      value: (stats.currentMonthUsers || 0).toLocaleString(),
+      change: calculateMoMChange(
+        stats.currentMonthUsers || 0,
+        stats.previousMonthUsers || 0
+      ),
+      icon: Users,
+      color: "text-blue-600",
+      description: "Month-over-month user growth",
+    },
+    {
+      label: "Active Providers",
+      value: (stats.activeProviders || 0).toLocaleString(),
+      change: calculateMoMChange(
+        stats.activeProviders || 0,
+        stats.previousMonthActiveProviders || 0
+      ),
+      icon: Briefcase,
+      color: "text-green-600",
+      description: "Currently active service providers",
+    },
+    {
+      label: "New Services This Month",
+      value: (stats.currentMonthServices || 0).toLocaleString(),
+      change: calculateMoMChange(
+        stats.currentMonthServices || 0,
+        stats.previousMonthServices || 0
+      ),
+      icon: Zap,
+      color: "text-purple-600",
+      description: "Month-over-month service growth",
+    },
+    {
+      label: "Monthly Revenue",
+      value: `Rp ${(stats.currentMonthRevenue || 0).toLocaleString()}`,
+      change: calculateMoMChange(
+        stats.currentMonthRevenue || 0,
+        stats.previousMonthRevenue || 0
+      ),
+      icon: DollarSign,
+      color: "text-emerald-600",
+      description: "From completed bookings this month",
+    },
+    {
+      label: "New Bookings This Month",
+      value: (stats.currentMonthBookings || 0).toLocaleString(),
+      change: calculateMoMChange(
+        stats.currentMonthBookings || 0,
+        stats.previousMonthBookings || 0
+      ),
+      icon: Calendar,
+      color: "text-orange-600",
+      description: "Month-over-month booking growth",
+    },
+    {
+      label: "Support Tickets",
+      value: (stats.supportTickets || 0).toLocaleString(),
+      change: calculateMoMChange(
+        stats.supportTickets || 0,
+        stats.previousMonthSupportTickets || 0
+      ),
+      icon: MessageSquare,
+      color: "text-red-600",
+      description: "Support tickets this month",
+    },
+    {
+      label: "Completion Rate",
+      value: `${Math.round(stats.currentCompletionRate || 0)}%`,
+      change: calculateMoMChange(
+        stats.currentCompletionRate || 0,
+        stats.previousCompletionRate || 0
+      ),
+      icon: TrendingUpIcon,
+      color: "text-indigo-600",
+      description: "Booking completion rate this month",
+    },
+    {
+      label: "Avg Rating",
+      value: (stats.averageRating || 0).toFixed(1),
+      change: calculateMoMChange(
+        stats.averageRating || 0,
+        stats.previousMonthAverageRating || 0
+      ),
+      icon: Award,
+      color: "text-yellow-600",
+      description: "Average service rating this month",
+      changeType: "absolute",
+    },
+  ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
-              <BarChart3 className="h-6 w-6 text-white" />
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          {/* Month Navigation */}
+          <div className="flex flex-col items-center">
+            {/* Current Month Badge - Always reserves space to prevent layout shift */}
+            <div className="h-6 mb-2 -ml-8">
+              <Badge
+                variant="secondary"
+                className={`text-xs transition-opacity duration-200 ${
+                  selectedMonth === getCurrentMonth()
+                    ? "opacity-100"
+                    : "opacity-0"
+                }`}
+              >
+                Current Month
+              </Badge>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                Admin Dashboard
-              </h1>
-              <p className="text-muted-foreground">
-                Real-time platform analytics and performance monitoring
-              </p>
+
+            {/* Navigation Controls */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToPreviousMonth}
+                disabled={selectedMonth <= getMinSelectableMonth()}
+                className="h-8 w-8 p-0"
+                title="Previous Month"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <input
+                      type="month"
+                      value={selectedMonth}
+                      onChange={(e) => handleMonthChange(e.target.value)}
+                      min={getMinSelectableMonth()}
+                      max={getMaxSelectableMonth()}
+                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary h-8"
+                      title="Select a month to view analytics data"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Analytics data available for current and past months only
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToNextMonth}
+                disabled={selectedMonth >= getMaxSelectableMonth()}
+                className="h-8 w-8 p-0"
+                title="Next Month"
+              >
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToCurrentMonth}
+                className="text-xs px-2 h-8"
+                title="Go to current month"
+              >
+                This Month
+              </Button>
             </div>
           </div>
+
+          {/* Spacer to align with navigation controls */}
+          <div className="h-6"></div>
+
+          {/* Month Info */}
+          <div className="flex items-center gap-2 h-8">
+            <Info className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              Viewing:{" "}
+              {new Date(selectedMonth + "-01").toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}
+            </span>
+          </div>
+
+          {/* Month Error Message */}
+          {monthError && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">{monthError}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
+          <Select
+            value={comparisonPeriod}
+            onValueChange={(value: "previous" | "same_last_year") =>
+              setComparisonPeriod(value)
+            }
+          >
+            <SelectTrigger className="w-48 h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="previous">vs Previous Month</SelectItem>
+              <SelectItem value="same_last_year">
+                vs Same Month Last Year
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
-          <Button variant="outline" size="sm">
-            <Filter className="mr-2 h-4 w-4" />
-            Filter
-          </Button>
           <Button
             onClick={refreshData}
             disabled={refreshing}
-            variant="default"
+            variant="outline"
             size="sm"
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+            className="h-8"
           >
             <RefreshCw
               className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
             />
             Refresh
           </Button>
+          <Button variant="default" size="sm" className="h-8">
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
         </div>
       </div>
 
-      {/* Matrix Grid */}
+      {/* KPI Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {matrixData.map((item, index) => (
-          <Card
-            key={index}
-            className="relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group border-0 bg-gradient-to-br from-white to-gray-50/50"
-          >
-            {/* Subtle background pattern */}
-            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-gray-100/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-              <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-gray-700 transition-colors">
-                {item.label}
-              </CardTitle>
+        {kpiData.map((item, index) => (
+          <Card key={index} className="flex flex-col">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+              <div className="space-y-1">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+                  {item.label}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3 w-3 ml-1.5 text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{item.description}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardTitle>
+                <CardDescription>{item.description}</CardDescription>
+              </div>
               <div
-                className={`p-3 rounded-xl ${item.bgColor} group-hover:scale-110 transition-transform duration-300 shadow-sm`}
+                className={cn(
+                  "flex items-center justify-center h-8 w-8 rounded-full",
+                  item.color.replace("text-", "bg-").replace("-600", "-100")
+                )}
               >
-                <div className={item.color}>{item.icon}</div>
+                <item.icon className={cn("h-4 w-4", item.color)} />
               </div>
             </CardHeader>
-            <CardContent className="relative z-10">
-              <div className="text-3xl font-bold mb-2 bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                {item.value}
-              </div>
-              <div className="flex items-center space-x-1">
-                {item.change !== undefined && (
+            <CardContent className="flex-1 flex flex-col justify-end">
+              <div className="text-3xl font-bold">{item.value}</div>
+              <div className="flex items-center text-xs text-muted-foreground mt-1">
+                {item.change.trend !== "neutral" && (
                   <>
-                    {item.trend === "up" ? (
-                      <ArrowUpRight className="h-3 w-3 text-green-600" />
-                    ) : item.trend === "down" ? (
-                      <ArrowDownRight className="h-3 w-3 text-red-700" />
+                    {item.change.trend === "up" ? (
+                      <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
                     ) : (
-                      <div className="h-3 w-3" />
+                      <TrendingDown className="h-4 w-4 text-red-700 mr-1" />
                     )}
                     <span
-                      className={`text-xs font-medium ${
-                        item.trend === "up"
+                      className={
+                        item.change.trend === "up"
                           ? "text-green-600"
-                          : item.trend === "down"
-                          ? "text-red-700"
-                          : "text-muted-foreground"
-                      }`}
+                          : "text-red-700"
+                      }
                     >
-                      {item.trend === "up"
-                        ? "+"
-                        : item.trend === "down"
-                        ? ""
-                        : ""}
-                      {item.change}
-                      {item.label.includes("Rate") ||
-                      item.label.includes("Rating")
-                        ? ""
-                        : "%"}
+                      {formatChangeDisplay(
+                        item.change.change,
+                        item.change.trend,
+                        item.changeType
+                      )}
+                    </span>
+                    <span className="ml-1">
+                      {item.changeType === "absolute"
+                        ? "current"
+                        : "vs last month"}
                     </span>
                   </>
                 )}
-                <span className="text-xs text-muted-foreground">
-                  {item.label.includes("Revenue")
-                    ? "total"
-                    : item.label.includes("Users")
-                    ? "registered"
-                    : item.label.includes("Services")
-                    ? "listed"
-                    : item.label.includes("Bookings")
-                    ? "total"
-                    : item.label.includes("Tickets")
-                    ? "open"
-                    : item.label.includes("Rate")
-                    ? "completion"
-                    : item.label.includes("Rating")
-                    ? "average"
-                    : "active"}
-                </span>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Performance Insights */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center text-green-800">
-              <CheckCircle className="mr-2 h-5 w-5" />
-              System Health
-            </CardTitle>
+      {/* Charts */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly Revenue</CardTitle>
+            <CardDescription>
+              Revenue from completed bookings over the last 6 months.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-green-700">Uptime</span>
-              <Badge className="bg-green-100 text-green-800 border-green-300">
-                99.9%
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-green-700">Response Time</span>
-              <Badge className="bg-green-100 text-green-800 border-green-300">
-                45ms
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-green-700">Error Rate</span>
-              <Badge className="bg-green-100 text-green-800 border-green-300">
-                0.1%
-              </Badge>
-            </div>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={charts?.revenue || []}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" />
+                <YAxis />
+                <RechartsTooltip />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#10b981"
+                  fillOpacity={1}
+                  fill="url(#colorRevenue)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
-
-        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center text-blue-800">
-              <Zap className="mr-2 h-5 w-5" />
-              Performance
-            </CardTitle>
+        <Card>
+          <CardHeader>
+            <CardTitle>New Users</CardTitle>
+            <CardDescription>
+              New user sign-ups over the last 6 months.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-blue-700">Page Load</span>
-              <Badge className="bg-blue-100 text-blue-800 border-blue-300">
-                1.2s
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-blue-700">API Calls</span>
-              <Badge className="bg-blue-100 text-blue-800 border-blue-300">
-                156/min
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-blue-700">Cache Hit</span>
-              <Badge className="bg-blue-100 text-blue-800 border-blue-300">
-                94%
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center text-purple-800">
-              <Target className="mr-2 h-5 w-5" />
-              Goals
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-purple-700">Monthly Target</span>
-              <Badge className="bg-purple-100 text-purple-800 border-purple-300">
-                85%
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-purple-700">User Growth</span>
-              <Badge className="bg-purple-100 text-purple-800 border-purple-300">
-                +12%
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-purple-700">Revenue Goal</span>
-              <Badge className="bg-purple-100 text-purple-800 border-purple-300">
-                92%
-              </Badge>
-            </div>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={charts?.users || []}>
+                <defs>
+                  <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" />
+                <YAxis />
+                <RechartsTooltip />
+                <Bar dataKey="users" fill="#3b82f6" />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
-
-      {/* Detailed Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center text-lg">
-                <div className="p-2 bg-blue-100 rounded-lg mr-3">
-                  <Users className="h-5 w-5 text-blue-600" />
-                </div>
-                User Breakdown
-              </CardTitle>
-              <Button variant="ghost" size="sm">
-                <Eye className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">
-                Active Providers
-              </span>
-              <Badge variant="secondary">{stats.activeProviders || 0}</Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">
-                Active Seekers
-              </span>
-              <Badge variant="secondary">{stats.activeSeekers || 0}</Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">
-                Pending Verification
-              </span>
-              <Badge variant="outline">{stats.pendingServices}</Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center text-lg">
-                <div className="p-2 bg-purple-100 rounded-lg mr-3">
-                  <Briefcase className="h-5 w-5 text-purple-600" />
-                </div>
-                Service Status
-              </CardTitle>
-              <Button variant="ghost" size="sm">
-                <Eye className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">
-                Total Services
-              </span>
-              <Badge variant="default">{stats.totalServices}</Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">
-                Pending Approval
-              </span>
-              <Badge variant="destructive">{stats.pendingServices}</Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">
-                Active Services
-              </span>
-              <Badge variant="secondary">
-                {stats.totalServices - stats.pendingServices}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center text-lg">
-                <div className="p-2 bg-red-100 rounded-lg mr-3">
-                  <MessageSquare className="h-5 w-5 text-red-700" />
-                </div>
-                Support Overview
-              </CardTitle>
-              <Button variant="ghost" size="sm">
-                <Eye className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">
-                Total Tickets
-              </span>
-              <Badge variant="default">{stats.supportTickets}</Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">
-                Open Tickets
-              </span>
-              <Badge variant="destructive">{stats.openTickets}</Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Resolved</span>
-              <Badge variant="secondary">
-                {stats.supportTickets - stats.openTickets}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Platform Overview */}
-      <Card className="border-0 shadow-lg bg-gradient-to-br from-gray-50 to-white">
-        <CardHeader className="pb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-xl flex items-center">
-                <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg mr-3">
-                  <Award className="h-5 w-5 text-white" />
-                </div>
-                Platform Overview
-              </CardTitle>
-              <CardDescription className="mt-2">
-                Real-time system status and performance metrics
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <PieChart className="mr-2 h-4 w-4" />
-                Analytics
-              </Button>
-              <Button variant="outline" size="sm">
-                <Clock className="mr-2 h-4 w-4" />
-                Timeline
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-4">
-              <h4 className="font-semibold text-base flex items-center">
-                <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                System Health
-              </h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="h-3 w-3 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium text-green-800">
-                      All systems operational
-                    </span>
-                  </div>
-                  <Badge className="bg-green-100 text-green-800 border-green-300">
-                    Live
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="h-3 w-3 bg-blue-500 rounded-full"></div>
-                    <span className="text-sm font-medium text-blue-800">
-                      Database connected
-                    </span>
-                  </div>
-                  <Badge className="bg-blue-100 text-blue-800 border-blue-300">
-                    Active
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="h-3 w-3 bg-green-500 rounded-full"></div>
-                    <span className="text-sm font-medium text-green-800">
-                      API endpoints healthy
-                    </span>
-                  </div>
-                  <Badge className="bg-green-100 text-green-800 border-green-300">
-                    99.9%
-                  </Badge>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <h4 className="font-semibold text-base flex items-center">
-                <TrendingUp className="mr-2 h-4 w-4 text-blue-600" />
-                Key Insights
-              </h4>
-              <div className="space-y-4">
-                <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                  <p className="text-sm font-medium text-blue-900 mb-2">
-                    Platform Performance
-                  </p>
-                  <p className="text-sm text-blue-700">
-                    Platform is running smoothly with {stats.totalUsers} users,{" "}
-                    {stats.totalServices} services, and Rp{" "}
-                    {stats.totalRevenue.toLocaleString()} in total revenue.
-                  </p>
-                </div>
-                {stats.totalBookings && stats.completedBookings && (
-                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                    <p className="text-sm font-medium text-green-900 mb-2">
-                      Service Completion Rate
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-green-700">
-                        {Math.round(
-                          (stats.completedBookings / stats.totalBookings) * 100
-                        )}
-                        % of bookings completed
-                      </p>
-                      <Badge className="bg-green-100 text-green-800 border-green-300">
-                        {stats.completedBookings}/{stats.totalBookings}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

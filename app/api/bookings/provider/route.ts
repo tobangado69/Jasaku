@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Transform the data to match the expected interface
-    const transformedBookings = bookings.map(booking => ({
+    const transformedBookings = bookings.map((booking: any) => ({
       id: booking.id,
       status: booking.status,
       scheduledAt: booking.scheduledAt.toISOString(),

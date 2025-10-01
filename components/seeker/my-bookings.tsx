@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -27,6 +28,7 @@ import {
   CreditCard,
   CheckCircle,
   AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { SeekerPayment } from "./payment";
 
@@ -78,7 +80,7 @@ interface Booking {
 export function SeekerMyBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState("upcoming");
   const [selectedBookingForPayment, setSelectedBookingForPayment] =
     useState<Booking | null>(null);
 
@@ -89,31 +91,40 @@ export function SeekerMyBookings() {
     return category?.name || "Unknown Category";
   };
 
-  useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const response = await fetch("/api/bookings");
-        if (response.ok) {
-          const data = await response.json();
-          setBookings(data);
-        } else {
-          console.error("Failed to fetch bookings");
-          setBookings([]);
-        }
-      } catch (error) {
-        console.error("Error fetching bookings:", error);
+  const fetchBookings = async () => {
+    try {
+      const response = await fetch("/api/bookings");
+      if (response.ok) {
+        const data = await response.json();
+        setBookings(data);
+      } else {
+        console.error("Failed to fetch bookings");
         setBookings([]);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching bookings:", error);
+      setBookings([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchBookings();
   }, []);
 
-  const filteredBookings = bookings.filter(
-    (booking) => statusFilter === "all" || booking.status === statusFilter
-  );
+  const filteredBookings = bookings.filter((booking) => {
+    if (activeTab === "upcoming") {
+      return ["PENDING", "CONFIRMED", "IN_PROGRESS"].includes(booking.status);
+    }
+    if (activeTab === "completed") {
+      return booking.status === "COMPLETED";
+    }
+    if (activeTab === "cancelled") {
+      return booking.status === "CANCELLED";
+    }
+    return true;
+  });
 
   const getStatusBadge = (status: string) => {
     const variants: {
@@ -197,183 +208,155 @@ export function SeekerMyBookings() {
 
   return (
     <div className="space-y-6">
-      {/* Filter */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">My Bookings</h2>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Bookings</SelectItem>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="CONFIRMED">Confirmed</SelectItem>
-            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-            <SelectItem value="COMPLETED">Completed</SelectItem>
-            <SelectItem value="CANCELLED">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setLoading(true);
+            fetchBookings();
+          }}
+          disabled={loading}
+        >
+          <RefreshCw
+            className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+          />
+          Refresh
+        </Button>
       </div>
 
-      {/* Bookings List */}
-      <div className="space-y-4">
-        {filteredBookings.map((booking) => (
-          <Card key={booking.id}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">
-                    {booking.service.title}
-                  </CardTitle>
-                  <CardDescription>
-                    {getCategoryName(booking.service.category)}
-                  </CardDescription>
-                </div>
-                {getStatusBadge(booking.status)}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      {new Date(
-                        booking.scheduledAt
-                      ).toLocaleDateString()} at{" "}
-                      {new Date(booking.scheduledAt).toLocaleTimeString()}
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <MapPin className="h-4 w-4 mr-2" />
-                      {booking.provider.location}
-                    </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+          <TabsTrigger value="completed">Completed</TabsTrigger>
+          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+        </TabsList>
+        <TabsContent value={activeTab} className="mt-6">
+          <div className="space-y-4">
+            {filteredBookings.map((booking) => (
+              <Card key={booking.id} className="overflow-hidden">
+                <div className="grid grid-cols-1 md:grid-cols-3">
+                  <div className="md:col-span-1">
+                    <img
+                      src={
+                        (booking.service.images && booking.service.images[0]) ||
+                        "/placeholder.svg"
+                      }
+                      alt={booking.service.title}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                  <div className="space-y-2">
-                    <div className="text-right">
-                      <div className="font-bold text-lg">
-                        Rp {booking.totalAmount.toLocaleString()}
+                  <div className="md:col-span-2">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <Badge variant="outline" className="mb-2">
+                            {getCategoryName(booking.service.category)}
+                          </Badge>
+                          <CardTitle>{booking.service.title}</CardTitle>
+                          <CardDescription>
+                            with {booking.provider.name}
+                          </CardDescription>
+                        </div>
+                        {getStatusBadge(booking.status)}
                       </div>
-                      <div className="text-sm text-gray-500">Total Amount</div>
-                    </div>
-                    {/* Payment Status */}
-                    {booking.payment && (
-                      <div className="text-right">
-                        <div className="flex items-center justify-end text-sm">
-                          {booking.payment.status === "COMPLETED" && (
-                            <CheckCircle className="h-4 w-4 mr-1 text-green-600" />
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        <span>
+                          {new Date(booking.scheduledAt).toLocaleDateString()}{" "}
+                          at{" "}
+                          {new Date(booking.scheduledAt).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="font-bold text-lg">
+                          Rp {booking.totalAmount.toLocaleString()}
+                        </div>
+                        <div className="flex gap-2">
+                          {booking.status === "PENDING" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCancelBooking(booking.id)}
+                            >
+                              Cancel
+                            </Button>
                           )}
-                          {booking.payment.status === "PENDING" && (
-                            <Clock className="h-4 w-4 mr-1 text-yellow-600" />
+                          {(booking.status === "PENDING" ||
+                            (booking.status === "CONFIRMED" &&
+                              !booking.payment)) && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                setSelectedBookingForPayment(booking)
+                              }
+                            >
+                              <CreditCard className="h-4 w-4 mr-2" />
+                              {booking.payment ? "View Payment" : "Pay Now"}
+                            </Button>
                           )}
-                          {booking.payment.status === "FAILED" && (
-                            <AlertCircle className="h-4 w-4 mr-1 text-red-600" />
+                          {booking.status !== "CANCELLED" && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() =>
+                                handleContactProvider(booking.provider)
+                              }
+                            >
+                              <MessageCircle className="h-4 w-4 mr-2" />
+                              Contact
+                            </Button>
                           )}
-                          <span
-                            className={`font-medium ${
-                              booking.payment.status === "COMPLETED"
-                                ? "text-green-600"
-                                : booking.payment.status === "PENDING"
-                                ? "text-yellow-600"
-                                : booking.payment.status === "FAILED"
-                                ? "text-red-600"
-                                : "text-gray-600"
-                            }`}
-                          >
-                            {booking.payment.status === "COMPLETED"
-                              ? "Paid"
-                              : booking.payment.status === "PENDING"
-                              ? "Payment Required"
-                              : booking.payment.status === "FAILED"
-                              ? "Payment Failed"
-                              : booking.payment.status}
-                          </span>
                         </div>
                       </div>
-                    )}
+                    </CardContent>
                   </div>
                 </div>
+              </Card>
+            ))}
+          </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">{booking.provider.name}</div>
-                    <div className="text-sm text-gray-500">
-                      {booking.provider.phone}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    {booking.status === "PENDING" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleCancelBooking(booking.id)}
-                      >
-                        Cancel
-                      </Button>
-                    )}
-                    {booking.status === "CONFIRMED" && !booking.payment && (
-                      <Button
-                        size="sm"
-                        onClick={() => setSelectedBookingForPayment(booking)}
-                      >
-                        <CreditCard className="h-4 w-4 mr-2" />
-                        Pay Now
-                      </Button>
-                    )}
-                    {booking.status !== "CANCELLED" && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleContactProvider(booking.provider)}
-                      >
-                        <MessageCircle className="h-4 w-4 mr-2" />
-                        Contact
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {booking.review && (
-                  <div className="border-t pt-4">
-                    <div className="flex items-center mb-2">
-                      <Star className="h-4 w-4 mr-1 text-yellow-500" />
-                      <span className="font-medium">
-                        {booking.review.rating}/5
-                      </span>
-                    </div>
-                    {booking.review.comment && (
-                      <p className="text-sm text-gray-600">
-                        "{booking.review.comment}"
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredBookings.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-gray-500">No bookings found.</p>
-          </CardContent>
-        </Card>
-      )}
+          {filteredBookings.length === 0 && (
+            <Card>
+              <CardContent className="text-center py-16">
+                <p className="text-muted-foreground">
+                  No {activeTab} bookings.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Payment Component */}
       {selectedBookingForPayment && (
         <SeekerPayment
           bookingId={selectedBookingForPayment.id}
           onPaymentComplete={(payment) => {
-            // Update the booking with payment information
+            // Update the booking with payment information and status
             setBookings((prev) =>
               prev.map((booking) =>
                 booking.id === selectedBookingForPayment.id
-                  ? { ...booking, payment }
+                  ? {
+                      ...booking,
+                      payment,
+                      status:
+                        payment.status === "COMPLETED"
+                          ? "CONFIRMED"
+                          : booking.status,
+                    }
                   : booking
               )
             );
             setSelectedBookingForPayment(null);
+
+            // Refresh the entire booking list to ensure we have the latest data
+            setTimeout(() => {
+              fetchBookings();
+            }, 1000);
           }}
           onPaymentCancel={() => setSelectedBookingForPayment(null)}
         />

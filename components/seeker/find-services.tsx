@@ -232,7 +232,7 @@ export function SeekerFindServices() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 w-full">
         {[...Array(6)].map((_, i) => (
           <Card key={i} className="animate-pulse">
             <CardHeader>
@@ -253,7 +253,7 @@ export function SeekerFindServices() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full px-4 sm:px-6 lg:px-8">
       {/* Search and Filters */}
       <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1 relative">
@@ -290,7 +290,7 @@ export function SeekerFindServices() {
       </div>
 
       {/* Services Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 w-full">
         {sortedServices.map((service) => (
           <Card key={service.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>

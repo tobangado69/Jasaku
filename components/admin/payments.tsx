@@ -29,12 +29,30 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   CheckCircle,
   XCircle,
   TrendingDown,
   Search,
   Filter,
   DollarSign,
+  MoreHorizontal,
+  Clock,
 } from "lucide-react";
 
 interface AdminPayment {
@@ -231,12 +249,37 @@ function AdminPayments() {
     .filter((p) => p.status === "COMPLETED")
     .reduce((sum, p) => sum + p.amount, 0);
 
+  const refundedAmount = payments
+    .filter((p) => p.status === "REFUNDED")
+    .reduce((sum, p) => sum + p.amount, 0);
+
   const pendingPayments = payments.filter((p) => p.status === "PENDING").length;
+
+  const kpiData = [
+    {
+      label: "Total Revenue",
+      value: `Rp ${totalRevenue.toLocaleString()}`,
+      icon: DollarSign,
+      description: "From completed payments",
+    },
+    {
+      label: "Amount Refunded",
+      value: `Rp ${refundedAmount.toLocaleString()}`,
+      icon: TrendingDown,
+      description: "From refunded payments",
+    },
+    {
+      label: "Pending Payments",
+      value: pendingPayments,
+      icon: Clock,
+      description: "Awaiting confirmation",
+    },
+  ];
 
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3 w-full">
           {[...Array(3)].map((_, i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader>
@@ -266,152 +309,121 @@ function AdminPayments() {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              Rp {totalRevenue.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              From completed payments
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Pending Payments
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pendingPayments}</div>
-            <p className="text-xs text-muted-foreground">
-              Awaiting confirmation
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Transactions
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{payments.length}</div>
-            <p className="text-xs text-muted-foreground">All payment records</p>
-          </CardContent>
-        </Card>
+      {/* KPI Cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {kpiData.map((item, index) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {item.label}
+              </CardTitle>
+              <item.icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{item.value}</div>
+              <p className="text-xs text-muted-foreground">
+                {item.description}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search payments..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full md:w-48">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="COMPLETED">Completed</SelectItem>
-            <SelectItem value="FAILED">Failed</SelectItem>
-            <SelectItem value="REFUNDED">Refunded</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Payments Table */}
+      {/* Filters & Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Payment Management</CardTitle>
-          <CardDescription>
-            Monitor and manage platform payments
-          </CardDescription>
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search by service or customer..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
+                <SelectItem value="FAILED">Failed</SelectItem>
+                <SelectItem value="REFUNDED">Refunded</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredPayments.map((payment) => (
-              <div key={payment.id} className="border rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="font-medium">
-                        {payment.booking.service.title}
-                      </h3>
-                      {getStatusBadge(payment.status)}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Service</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredPayments.map((payment) => (
+                <TableRow key={payment.id}>
+                  <TableCell>
+                    <div className="font-medium">
+                      {payment.booking.service.title}
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                      <div>
-                        <div>
-                          <strong>Customer:</strong>{" "}
-                          {payment.booking.customer.name}
-                        </div>
-                        <div>
-                          <strong>Method:</strong> {payment.paymentMethod}
-                        </div>
-                      </div>
-                      <div>
-                        <div>
-                          <strong>Amount:</strong> Rp{" "}
-                          {payment.amount.toLocaleString()}
-                        </div>
-                        <div>
-                          <strong>Transaction ID:</strong>{" "}
-                          {payment.transactionId || "N/A"}
-                        </div>
-                        <div>
-                          <strong>Date:</strong>{" "}
-                          {new Date(payment.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
+                    <div className="text-sm text-muted-foreground">
+                      by {payment.booking.service.provider.name}
                     </div>
-                  </div>
-
-                  <div className="flex space-x-2 ml-4">
-                    {payment.status === "PENDING" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleApprovePayment(payment.id)}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Approve
-                      </Button>
-                    )}
-
-                    {payment.status === "COMPLETED" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRefundPayment(payment)}
-                      >
-                        <TrendingDown className="h-4 w-4 mr-1" />
-                        Refund
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">
+                      {payment.booking.customer.name}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {payment.booking.customer.email}
+                    </div>
+                  </TableCell>
+                  <TableCell>Rp {payment.amount.toLocaleString()}</TableCell>
+                  <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                  <TableCell>
+                    {new Date(payment.createdAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        {payment.status === "PENDING" && (
+                          <DropdownMenuItem
+                            onClick={() => handleApprovePayment(payment.id)}
+                          >
+                            Approve Payment
+                          </DropdownMenuItem>
+                        )}
+                        {payment.status === "COMPLETED" && (
+                          <DropdownMenuItem
+                            onClick={() => handleRefundPayment(payment)}
+                          >
+                            Issue Refund
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem>View Details</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
           {filteredPayments.length === 0 && (
             <p className="text-center text-gray-500 py-8">No payments found.</p>
           )}

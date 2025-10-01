@@ -563,7 +563,7 @@ export function ProviderServices() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 w-full">
         {[...Array(3)].map((_, i) => (
           <Card key={i} className="animate-pulse">
             <CardHeader>
@@ -583,7 +583,7 @@ export function ProviderServices() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full px-4 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -1041,7 +1041,7 @@ export function ProviderServices() {
       </div>
 
       {/* Services Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 w-full">
         {services.map((service) => (
           <Card key={service.id}>
             <CardHeader>

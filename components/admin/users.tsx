@@ -38,7 +38,26 @@ import {
   UserCheck,
   UserX,
   Shield,
+  MoreHorizontal,
+  Users as UsersIcon,
+  Briefcase,
 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface AdminUser {
   id: string;
@@ -82,6 +101,25 @@ export function AdminUsers() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+
+  const kpiData = [
+    {
+      label: "Total Users",
+      value: users.length,
+      icon: UsersIcon,
+    },
+    {
+      label: "Active Providers",
+      value: users.filter((u) => u.role === "PROVIDER" && u.status === "ACTIVE")
+        .length,
+      icon: Briefcase,
+    },
+    {
+      label: "Pending Verification",
+      value: users.filter((u) => u.status === "PENDING_VERIFICATION").length,
+      icon: Shield,
+    },
+  ];
 
   const fetchUsers = async () => {
     try {
@@ -349,7 +387,24 @@ export function AdminUsers() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full px-4 sm:px-6 lg:px-8">
+      {/* KPI Cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {kpiData.map((item, index) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {item.label}
+              </CardTitle>
+              <item.icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{item.value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -400,139 +455,93 @@ export function AdminUsers() {
 
       {/* Users Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Users ({filteredUsers.length})</CardTitle>
-          <CardDescription>
-            Manage user accounts and permissions
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredUsers.map((user) => (
-              <div
-                key={user.id}
-                className="flex items-center justify-between p-4 border rounded-lg"
-              >
-                <div className="flex items-center space-x-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={user.profileImage} />
-                    <AvatarFallback>
-                      {user.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <h3 className="font-medium">{user.name}</h3>
-                      {user.isVerified && (
-                        <Badge variant="outline" className="text-xs">
-                          Verified
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500">{user.email}</p>
-                    <p className="text-xs text-gray-400">
-                      Joined {new Date(user.createdAt).toLocaleDateString()}
-                      {user.lastLogin &&
-                        ` • Last login ${new Date(
-                          user.lastLogin
-                        ).toLocaleDateString()}`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-4">
-                  <div className="text-right text-sm">
-                    <div>{getRoleBadge(user.role)}</div>
-                    <div className="text-gray-500 mt-1 space-y-1">
-                      <div className="flex items-center gap-4 text-xs">
-                        <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                          {user._count.services} services
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                          {user._count.bookingsAsCustomer +
-                            user._count.bookingsAsProvider}{" "}
-                          bookings
-                        </span>
+        <CardContent className="pt-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUsers.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>
+                    <div className="flex items-center space-x-4">
+                      <Avatar>
+                        <AvatarImage src={user.profileImage} />
+                        <AvatarFallback>
+                          {user.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">{user.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {user.email}
+                        </div>
                       </div>
-                      {(user._count.bookingsAsCustomer > 0 ||
-                        user._count.bookingsAsProvider > 0) && (
-                        <div className="text-xs text-gray-400">
-                          ({user._count.bookingsAsCustomer} as customer,{" "}
-                          {user._count.bookingsAsProvider} as provider)
-                        </div>
-                      )}
-                      {user._count.reviews > 0 && (
-                        <div className="text-xs text-gray-400">
-                          {user._count.reviews} reviews
-                        </div>
-                      )}
                     </div>
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditUser(user)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-
-                    {user.status === "SUSPENDED" ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleUserAction(user.id, "activate")}
-                      >
-                        Activate
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleUserAction(user.id, "suspend")}
-                      >
-                        Suspend
-                      </Button>
-                    )}
-
-                    {!user.isVerified && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleUserAction(user.id, "verify")}
-                      >
-                        Verify
-                      </Button>
-                    )}
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteUser(user.id)}
-                      disabled={deletingUserId === user.id}
-                      className="text-red-700 hover:text-red-800 hover:bg-red-50 border-red-300"
-                    >
-                      {deletingUserId === user.id ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-700 border-t-transparent" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {filteredUsers.length === 0 && (
-            <p className="text-center text-gray-500 py-8">No users found.</p>
-          )}
+                  </TableCell>
+                  <TableCell>{getRoleBadge(user.role)}</TableCell>
+                  <TableCell>{getStatusBadge(user.status)}</TableCell>
+                  <TableCell>
+                    {new Date(user.createdAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                          Edit
+                        </DropdownMenuItem>
+                        {user.status === "SUSPENDED" ? (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleUserAction(user.id, "activate")
+                            }
+                          >
+                            Activate
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() => handleUserAction(user.id, "suspend")}
+                          >
+                            Suspend
+                          </DropdownMenuItem>
+                        )}
+                        {!user.isVerified && (
+                          <DropdownMenuItem
+                            onClick={() => handleUserAction(user.id, "verify")}
+                          >
+                            Verify
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={() => handleDeleteUser(user.id)}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 

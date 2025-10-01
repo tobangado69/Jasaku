@@ -42,8 +42,8 @@ export function DashboardLayout({
       <div className="flex">
         <Sidebar userRole={userRole} user={user} />
 
-        <div className="flex-1 lg:ml-64">
-          <main className="p-6">
+        <div className="flex-1">
+          <main className="w-full p-6">
             {/* Header */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
@@ -53,7 +53,7 @@ export function DashboardLayout({
             </div>
 
             {/* Content */}
-            <div className="space-y-6">{children}</div>
+            {children}
           </main>
         </div>
       </div>

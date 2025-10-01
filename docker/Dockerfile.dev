@@ -18,6 +18,9 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate
 
+# Create .next directory with proper permissions
+RUN mkdir -p .next && chmod 755 .next
+
 # Expose port
 EXPOSE 3000
 

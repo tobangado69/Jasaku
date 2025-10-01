@@ -178,41 +178,16 @@ export async function POST(request: NextRequest) {
       data: {
         bookingId: booking.id,
         amount: service.price,
-        paymentMethod: "qris", // Default to QRIS, user will choose on Midtrans page
+        paymentMethod: null, // Will be updated from Xendit webhook based on user's choice
         status: "PENDING"
       }
     })
 
-    // Create Midtrans transaction
+    // Create Xendit invoice
     const orderId = `JASAKU-${booking.id}-${payment.id}`
-    const parameter = {
-      payment_type: "qris",
-      transaction_details: {
-        order_id: orderId,
-        gross_amount: service.price,
-      },
-      customer_details: {
-        first_name: (session.user as any)?.name?.split(" ")[0] || "Customer",
-        last_name: (session.user as any)?.name?.split(" ").slice(1).join(" ") || "",
-        email: (session.user as any)?.email,
-        phone: (session.user as any)?.phone || "",
-      },
-      item_details: [{
-        id: service.id,
-        price: service.price,
-        quantity: 1,
-        name: service.title,
-        category: "Service",
-      }],
-      callbacks: {
-        finish: `${process.env.NEXTAUTH_URL}/bookings`
-      }
-    }
+    const customerEmail = (session.user as any)?.email || ""
 
     console.log("Creating Xendit invoice with external_id:", orderId)
-
-    // Create Xendit invoice with minimal required structure based on latest API
-    const customerEmail = (session.user as any)?.email || ""
     const customerName = (session.user as any)?.name || "Customer"
     const nameParts = customerName.split(" ")
     const givenNames = nameParts[0] || "Customer"

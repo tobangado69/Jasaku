@@ -174,43 +174,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Payment already exists for this booking" }, { status: 400 })
     }
 
-    // Create payment record
+    // Create payment record with dynamic method
     const payment = await prisma.payment.create({
       data: {
         bookingId: validatedData.bookingId,
         amount: booking.totalAmount,
-        paymentMethod: "qris", // Default to QRIS, user will choose on Midtrans page
+        paymentMethod: null, // Will be set by Xendit webhook when user chooses method
         status: "PENDING"
       }
     })
 
-    // Create Midtrans transaction
-    const orderId = `JASAKU-${booking.id}-${payment.id}`
-    const parameter = {
-      payment_type: "qris",
-      transaction_details: {
-        order_id: orderId,
-        gross_amount: booking.totalAmount,
-      },
-      customer_details: {
-        first_name: booking.customer.name?.split(" ")[0] || "Customer",
-        last_name: booking.customer.name?.split(" ").slice(1).join(" ") || "",
-        email: booking.customer.email,
-        phone: "", // Add phone if available
-      },
-      item_details: [{
-        id: booking.service.id,
-        price: booking.totalAmount,
-        quantity: 1,
-        name: booking.service.title,
-        category: "Service",
-      }],
-      callbacks: {
-        finish: `${process.env.NEXTAUTH_URL}/bookings`
-      }
-    }
-
-    console.log("Creating Xendit invoice with external_id:", orderId)
+    console.log("Creating Xendit invoice with external_id:", `JASAKU-${booking.id}-${payment.id}`)
 
     // Create Xendit invoice with minimal required structure based on latest API
     const customerEmail = booking.customer.email || ""
@@ -230,7 +204,24 @@ export async function POST(request: NextRequest) {
         amount: booking.totalAmount,
         payerEmail: customerEmail,
         description: `Payment for ${booking.service.title}`,
-        currency: "IDR"
+        currency: "IDR",
+        // Enable all available payment methods dynamically
+        shouldAuthenticateCC: false,
+        invoiceDuration: 86400, // 24 hours
+        successRedirectUrl: `${process.env.NEXTAUTH_URL}/seeker/bookings?status=success&booking=${booking.id}`,
+        failureRedirectUrl: `${process.env.NEXTAUTH_URL}/seeker/bookings?status=failed&booking=${booking.id}`,
+        // Specify payment methods to enable - remove this to enable all available methods
+        // availableBanks: ['BCA', 'BNI', 'BRI', 'MANDIRI', 'PERMATA', 'SAHABAT_SAMPOERNA'],
+        // availableEwallets: ['GOPAY', 'OVO', 'DANA', 'SHOPEEPAY', 'LINKAJA'],
+        // availableRetailOutlets: ['ALFAMART', 'INDOMARET'],
+        shouldSendEmail: true,
+        paymentMethods: ['BANK_TRANSFER', 'EWALLET', 'QRIS', 'CREDIT_CARD', 'RETAIL_OUTLET'],
+        customer: {
+          given_names: customerName.split(' ')[0] || 'Customer',
+          surname: customerName.split(' ').slice(1).join(' ') || '',
+          email: customerEmail,
+          mobile_number: booking.customer.phone || ''
+        }
       }
 
       console.log("Creating Xendit invoice with data:", JSON.stringify(invoiceData, null, 2))

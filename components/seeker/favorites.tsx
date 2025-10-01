@@ -136,7 +136,7 @@ export function SeekerFavorites() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 w-full">
         {[...Array(3)].map((_, i) => (
           <Card key={i} className="animate-pulse">
             <CardHeader>
@@ -192,7 +192,7 @@ export function SeekerFavorites() {
       </div>
 
       {/* Providers Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 w-full">
         {filteredProviders.map((provider) => (
           <Card key={provider.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>

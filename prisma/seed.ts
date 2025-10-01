@@ -204,19 +204,20 @@ async function main() {
     },
   })
 
-  // Create bookings
+  // Create bookings (September 2025)
   const booking1 = await prisma.booking.upsert({
     where: { id: 'booking-1' },
     update: {},
     create: {
       id: 'booking-1',
-      status: 'CONFIRMED',
-      scheduledAt: new Date('2024-01-20T10:00:00Z'),
+      status: 'COMPLETED',
+      scheduledAt: new Date('2025-09-20T10:00:00Z'),
       totalAmount: 150000,
       serviceId: 'service-1',
       customerId: seekerUser.id,
       providerId: providerUser.id,
       notes: 'Please clean the kitchen thoroughly',
+      createdAt: new Date('2025-09-15T08:00:00Z'),
     },
   })
 
@@ -225,16 +226,17 @@ async function main() {
     update: {},
     create: {
       id: 'booking-2',
-      status: 'PENDING',
-      scheduledAt: new Date('2024-01-25T14:00:00Z'),
+      status: 'COMPLETED',
+      scheduledAt: new Date('2025-09-25T14:00:00Z'),
       totalAmount: 500000,
       serviceId: 'service-2',
       customerId: seekerUser.id,
       providerId: providerUser.id,
+      createdAt: new Date('2025-09-20T10:00:00Z'),
     },
   })
 
-  // Create payments
+  // Create payments (September 2025)
   await prisma.payment.upsert({
     where: { id: 'payment-1' },
     update: {},
@@ -244,8 +246,9 @@ async function main() {
       status: 'COMPLETED',
       paymentMethod: 'QRIS',
       transactionId: 'TXN-001',
-      paidAt: new Date('2024-01-20T09:30:00Z'),
+      paidAt: new Date('2025-09-20T09:30:00Z'),
       bookingId: 'booking-1',
+      createdAt: new Date('2025-09-15T08:00:00Z'),
     },
   })
 
@@ -255,9 +258,12 @@ async function main() {
     create: {
       id: 'payment-2',
       amount: 500000,
-      status: 'PENDING',
+      status: 'COMPLETED',
       paymentMethod: 'Bank Transfer',
+      transactionId: 'TXN-002',
+      paidAt: new Date('2025-09-25T13:30:00Z'),
       bookingId: 'booking-2',
+      createdAt: new Date('2025-09-20T10:00:00Z'),
     },
   })
 
@@ -420,19 +426,20 @@ async function main() {
         },
       })
 
-      // Create more bookings
+      // Create more bookings (spread across August-October 2025)
       const booking3 = await prisma.booking.upsert({
         where: { id: 'booking-3' },
         update: {},
         create: {
           id: 'booking-3',
           status: 'COMPLETED',
-          scheduledAt: new Date('2024-01-15T09:00:00Z'),
+          scheduledAt: new Date('2025-08-15T09:00:00Z'),
           totalAmount: 250000,
           serviceId: 'service-6',
           customerId: seeker2.id,
           providerId: providerUser.id,
           notes: 'Need logo for new restaurant',
+          createdAt: new Date('2025-08-10T08:00:00Z'),
         },
       })
 
@@ -441,13 +448,14 @@ async function main() {
         update: {},
         create: {
           id: 'booking-4',
-          status: 'IN_PROGRESS',
-          scheduledAt: new Date('2024-01-30T15:00:00Z'),
+          status: 'COMPLETED',
+          scheduledAt: new Date('2025-09-30T15:00:00Z'),
           totalAmount: 800000,
           serviceId: 'service-5',
           customerId: seeker3.id,
           providerId: provider2.id,
           notes: 'E-commerce mobile app',
+          createdAt: new Date('2025-09-25T10:00:00Z'),
         },
       })
 
@@ -456,16 +464,17 @@ async function main() {
         update: {},
         create: {
           id: 'booking-5',
-          status: 'PENDING',
-          scheduledAt: new Date('2024-02-05T10:00:00Z'),
+          status: 'COMPLETED',
+          scheduledAt: new Date('2025-10-05T10:00:00Z'),
           totalAmount: 100000,
           serviceId: 'service-7',
           customerId: seeker2.id,
           providerId: provider2.id,
+          createdAt: new Date('2025-10-01T09:00:00Z'),
         },
       })
 
-      // Create more payments
+      // Create more payments (2025 dates)
       await prisma.payment.upsert({
         where: { id: 'payment-3' },
         update: {},
@@ -473,10 +482,11 @@ async function main() {
           id: 'payment-3',
           amount: 250000,
           status: 'COMPLETED',
-          paymentMethod: 'Credit Card',
+          paymentMethod: 'GoPay',
           transactionId: 'TXN-003',
-          paidAt: new Date('2024-01-15T08:30:00Z'),
+          paidAt: new Date('2025-08-15T08:30:00Z'),
           bookingId: 'booking-3',
+          createdAt: new Date('2025-08-10T08:00:00Z'),
         },
       })
 
@@ -489,8 +499,9 @@ async function main() {
           status: 'COMPLETED',
           paymentMethod: 'Bank Transfer',
           transactionId: 'TXN-004',
-          paidAt: new Date('2024-01-30T14:30:00Z'),
+          paidAt: new Date('2025-09-30T14:30:00Z'),
           bookingId: 'booking-4',
+          createdAt: new Date('2025-09-25T10:00:00Z'),
         },
       })
 
@@ -500,9 +511,12 @@ async function main() {
         create: {
           id: 'payment-5',
           amount: 100000,
-          status: 'PENDING',
+          status: 'COMPLETED',
           paymentMethod: 'QRIS',
+          transactionId: 'TXN-005',
+          paidAt: new Date('2025-10-05T09:30:00Z'),
           bookingId: 'booking-5',
+          createdAt: new Date('2025-10-01T09:00:00Z'),
         },
       })
 
@@ -533,7 +547,7 @@ async function main() {
         },
       })
 
-      // Create support tickets
+      // Create support tickets (2025 dates)
       await prisma.supportTicket.upsert({
         where: { id: 'ticket-1' },
         update: {},
@@ -545,6 +559,7 @@ async function main() {
           priority: 'HIGH',
           status: 'OPEN',
           userId: seekerUser.id,
+          createdAt: new Date('2025-09-28T10:00:00Z'),
         },
       })
 
@@ -560,6 +575,7 @@ async function main() {
           status: 'IN_PROGRESS',
           userId: seeker2.id,
           assignedTo: adminUser.id,
+          createdAt: new Date('2025-09-29T14:00:00Z'),
         },
       })
 
@@ -575,7 +591,8 @@ async function main() {
           status: 'RESOLVED',
           userId: unverifiedProvider.id,
           assignedTo: adminUser.id,
-          resolvedAt: new Date('2024-01-18T10:00:00Z'),
+          resolvedAt: new Date('2025-09-18T10:00:00Z'),
+          createdAt: new Date('2025-09-15T09:00:00Z'),
         },
       })
 
@@ -591,7 +608,8 @@ async function main() {
           status: 'CLOSED',
           userId: providerUser.id,
           assignedTo: adminUser.id,
-          resolvedAt: new Date('2024-01-20T15:30:00Z'),
+          resolvedAt: new Date('2025-09-20T15:30:00Z'),
+          createdAt: new Date('2025-09-19T11:00:00Z'),
         },
       })
 
@@ -606,6 +624,7 @@ async function main() {
           priority: 'URGENT',
           status: 'OPEN',
           userId: seeker3.id,
+          createdAt: new Date('2025-10-02T11:00:00Z'),
         },
       })
 

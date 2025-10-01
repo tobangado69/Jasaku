@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,12 +13,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   CheckCircle,
   XCircle,
   Eye,
   Search,
   Filter,
   Shield,
+  MoreHorizontal,
+  Package,
+  Clock,
 } from "lucide-react";
 
 interface Category {
@@ -72,6 +85,36 @@ function AdminServices() {
   const [unverifyingProviderId, setUnverifyingProviderId] = useState<
     string | null
   >(null);
+
+  const kpiData = [
+    {
+      label: "Total Services",
+      value: services.length,
+      icon: Package,
+      color: "bg-blue-500",
+      bgColor: "bg-blue-50",
+      textColor: "text-blue-700",
+      iconColor: "text-blue-600",
+    },
+    {
+      label: "Active Services",
+      value: services.filter((s) => s.status === "ACTIVE").length,
+      icon: CheckCircle,
+      color: "bg-emerald-500",
+      bgColor: "bg-emerald-50",
+      textColor: "text-emerald-700",
+      iconColor: "text-emerald-600",
+    },
+    {
+      label: "Pending Approval",
+      value: services.filter((s) => s.status === "PENDING_APPROVAL").length,
+      icon: Clock,
+      color: "bg-amber-500",
+      bgColor: "bg-amber-50",
+      textColor: "text-amber-700",
+      iconColor: "text-amber-600",
+    },
+  ];
 
   const fetchServices = async () => {
     try {
@@ -125,28 +168,33 @@ function AdminServices() {
   });
 
   const getStatusBadge = (status: string) => {
-    const variants: {
-      [key: string]: "default" | "secondary" | "destructive" | "outline";
-    } = {
-      ACTIVE: "default",
-      INACTIVE: "secondary",
-      PENDING_APPROVAL: "outline",
-      REJECTED: "destructive",
+    const statusConfig = {
+      ACTIVE: {
+        variant: "default" as const,
+        className:
+          "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-200",
+      },
+      INACTIVE: {
+        variant: "secondary" as const,
+        className:
+          "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200",
+      },
+      PENDING_APPROVAL: {
+        variant: "outline" as const,
+        className:
+          "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100",
+      },
+      REJECTED: {
+        variant: "destructive" as const,
+        className: "bg-red-100 text-red-800 border-red-200 hover:bg-red-200",
+      },
     };
 
-    const colors = {
-      ACTIVE: "text-green-700",
-      INACTIVE: "text-gray-700",
-      PENDING_APPROVAL: "text-yellow-700",
-      REJECTED: "text-red-700",
-    };
+    const config = statusConfig[status as keyof typeof statusConfig];
 
     return (
-      <Badge
-        variant={variants[status]}
-        className={colors[status as keyof typeof colors]}
-      >
-        {status}
+      <Badge variant={config.variant} className={config.className}>
+        {status.replace("_", " ")}
       </Badge>
     );
   };
@@ -155,7 +203,7 @@ function AdminServices() {
     return isVerified ? (
       <Badge
         variant="outline"
-        className="text-green-700 border-green-300 bg-green-50"
+        className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
       >
         <Shield className="h-3 w-3 mr-1" />
         Verified
@@ -163,7 +211,7 @@ function AdminServices() {
     ) : (
       <Badge
         variant="outline"
-        className="text-red-700 border-red-300 bg-red-50"
+        className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
       >
         <Shield className="h-3 w-3 mr-1" />
         Unverified
@@ -312,196 +360,252 @@ function AdminServices() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardHeader>
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="h-3 bg-gray-200 rounded"></div>
-                <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-                <div className="h-16 bg-gray-200 rounded"></div>
+      <div className="space-y-6">
+        {/* KPI Cards Loading */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="h-4 bg-muted rounded w-24"></div>
+                <div className="h-4 w-4 bg-muted rounded"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 bg-muted rounded w-16"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Table Loading */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+              <div className="h-10 bg-muted rounded w-full md:w-80"></div>
+              <div className="flex gap-4">
+                <div className="h-10 bg-muted rounded w-32"></div>
+                <div className="h-10 bg-muted rounded w-32"></div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-16 bg-muted rounded"></div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Service Management</h2>
-          <p className="text-gray-600">Moderate and manage platform services</p>
-        </div>
+      {/* KPI Cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {kpiData.map((item, index) => (
+          <Card key={index} className="relative overflow-hidden">
+            <div
+              className={`absolute top-0 right-0 w-20 h-20 ${item.color} opacity-10 rounded-bl-3xl`}
+            ></div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className={`text-sm font-medium ${item.textColor}`}>
+                {item.label}
+              </CardTitle>
+              <div className={`p-2 rounded-lg ${item.bgColor}`}>
+                <item.icon className={`h-4 w-4 ${item.iconColor}`} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${item.textColor}`}>
+                {item.value}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search services..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full md:w-48">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="ACTIVE">Active</SelectItem>
-            <SelectItem value="INACTIVE">Inactive</SelectItem>
-            <SelectItem value="PENDING_APPROVAL">Pending Approval</SelectItem>
-            <SelectItem value="REJECTED">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-full md:w-48">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category.id} value={category.name}>
-                {category.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Services Table */}
+      {/* Header & Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Services ({filteredServices.length})</CardTitle>
-          <CardDescription>
-            Manage service listings and approvals
-          </CardDescription>
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search services..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 focus:ring-2 focus:ring-primary/20 transition-all duration-150"
+              />
+            </div>
+            <div className="flex gap-4">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="INACTIVE">Inactive</SelectItem>
+                  <SelectItem value="PENDING_APPROVAL">
+                    Pending Approval
+                  </SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.name}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredServices.map((service) => (
-              <div key={service.id} className="border rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="font-medium">{service.title}</h3>
-                      {getStatusBadge(service.status)}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Service</TableHead>
+                <TableHead>Provider</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Price</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredServices.map((service, index) => (
+                <TableRow
+                  key={service.id}
+                  className="hover:bg-muted/50 transition-colors duration-150"
+                >
+                  <TableCell className="py-4">
+                    <div className="font-medium text-foreground">
+                      {service.title}
+                    </div>
+                    <div className="text-sm text-muted-foreground truncate max-w-xs mt-1">
+                      {service.description}
+                    </div>
+                  </TableCell>
+                  <TableCell className="py-4">
+                    <div className="font-medium text-foreground">
+                      {service.provider.name}
+                    </div>
+                    <div className="text-sm mt-1">
                       {getProviderStatusBadge(service.provider.isVerified)}
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">
-                      {service.description}
-                    </p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <span>Category: {getCategoryName(service.category)}</span>
-                      <span>Price: Rp {service.price.toLocaleString()}</span>
-                      <span>Bookings: {service._count.bookings}</span>
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      Provider: {service.provider.name} (
-                      {service.provider.email})
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      Created:{" "}
-                      {new Date(service.createdAt).toLocaleDateString()}
-                    </div>
-                  </div>
-
-                  <div className="flex space-x-2 ml-4">
-                    {service.status === "PENDING_APPROVAL" && (
-                      <>
+                  </TableCell>
+                  <TableCell className="py-4 text-foreground">
+                    {getCategoryName(service.category)}
+                  </TableCell>
+                  <TableCell className="py-4">
+                    <span className="font-semibold text-foreground">
+                      Rp {service.price.toLocaleString()}
+                    </span>
+                  </TableCell>
+                  <TableCell className="py-4">
+                    {getStatusBadge(service.status)}
+                  </TableCell>
+                  <TableCell className="py-4">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
                         <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleApproveService(service.id)}
-                          className="text-green-700 hover:text-green-800 hover:bg-green-50 border-green-300"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 hover:bg-muted/80 transition-colors duration-150"
                         >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRejectService(service.id)}
-                          className="text-red-700 hover:text-red-800 hover:bg-red-50 border-red-300"
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Reject
-                        </Button>
-                      </>
-                    )}
-
-                    {!service.provider.isVerified ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          handleVerifyProvider(
-                            service.provider.id,
-                            service.provider.name
-                          )
-                        }
-                        disabled={verifyingProviderId === service.provider.id}
-                        className="text-blue-700 hover:text-blue-800 hover:bg-blue-50 border-blue-300"
-                      >
-                        {verifyingProviderId === service.provider.id ? (
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-700 border-t-transparent mr-1" />
-                        ) : (
-                          <Shield className="h-4 w-4 mr-1" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        {service.status === "PENDING_APPROVAL" && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => handleApproveService(service.id)}
+                              className="text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50"
+                            >
+                              <CheckCircle className="mr-2 h-4 w-4" /> Approve
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleRejectService(service.id)}
+                              className="text-red-700 hover:text-red-800 hover:bg-red-50"
+                            >
+                              <XCircle className="mr-2 h-4 w-4" /> Reject
+                            </DropdownMenuItem>
+                          </>
                         )}
-                        Verify
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          handleUnverifyProvider(
-                            service.provider.id,
-                            service.provider.name
-                          )
-                        }
-                        disabled={unverifyingProviderId === service.provider.id}
-                        className="text-orange-700 hover:text-orange-800 hover:bg-orange-50 border-orange-300"
-                      >
-                        {unverifyingProviderId === service.provider.id ? (
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-orange-700 border-t-transparent mr-1" />
-                        ) : (
-                          <Shield className="h-4 w-4 mr-1" />
+                        {service.status !== "PENDING_APPROVAL" && (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleToggleStatus(service.id, service.status)
+                            }
+                            className="text-blue-700 hover:text-blue-800 hover:bg-blue-50"
+                          >
+                            {service.status === "ACTIVE"
+                              ? "Deactivate"
+                              : "Activate"}
+                          </DropdownMenuItem>
                         )}
-                        Unverify
-                      </Button>
-                    )}
-
-                    {service.status !== "PENDING_APPROVAL" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          handleToggleStatus(service.id, service.status)
-                        }
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
+                        {!service.provider.isVerified ? (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleVerifyProvider(
+                                service.provider.id,
+                                service.provider.name
+                              )
+                            }
+                            className="text-amber-700 hover:text-amber-800 hover:bg-amber-50"
+                          >
+                            <Shield className="mr-2 h-4 w-4" /> Verify Provider
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleUnverifyProvider(
+                                service.provider.id,
+                                service.provider.name
+                              )
+                            }
+                            className="text-slate-700 hover:text-slate-800 hover:bg-slate-50"
+                          >
+                            <Shield className="mr-2 h-4 w-4" /> Unverify
+                            Provider
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-slate-700 hover:text-slate-800 hover:bg-slate-50">
+                          <Eye className="mr-2 h-4 w-4" /> View Details
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
           {filteredServices.length === 0 && (
-            <p className="text-center text-gray-500 py-8">No services found.</p>
+            <div className="text-center py-12">
+              <Package className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+              <p className="text-muted-foreground text-lg font-medium">
+                No services found
+              </p>
+              <p className="text-muted-foreground/70 text-sm mt-1">
+                {searchQuery ||
+                statusFilter !== "all" ||
+                categoryFilter !== "all"
+                  ? "Try adjusting your filters or search terms"
+                  : "No services have been created yet"}
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -242,10 +242,6 @@ export function Sidebar({ userRole, user, className }: SidebarProps) {
                 </Link>
               );
             })}
-          </nav>
-
-          {/* Footer */}
-          <div className="p-4 border-t border-gray-200">
             <Button
               variant="ghost"
               className="w-full justify-start text-gray-700 hover:bg-gray-100"
@@ -254,7 +250,7 @@ export function Sidebar({ userRole, user, className }: SidebarProps) {
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
             </Button>
-          </div>
+          </nav>
         </div>
       </div>
 

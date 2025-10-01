@@ -17,42 +17,44 @@ services:
   # Next.js application
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: jasaku-app
     ports:
       - "3000:3000"
+    env_file:
+      - ../.env
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://postgres:postgres@database:5432/jasaku
       - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=your-secret-key-here
     depends_on:
       - database
     networks:
       - jasaku-network
     volumes:
-      - ./prisma:/app/prisma
+      - ../prisma:/app/prisma
 
   # Development version (optional)
   app-dev:
     build:
-      context: .
-      dockerfile: Dockerfile.dev
+      context: ..
+      dockerfile: docker/Dockerfile.dev
     container_name: jasaku-app-dev
     ports:
       - "3001:3000"
+    env_file:
+      - ../.env
     environment:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://postgres:postgres@database:5432/jasaku
       - NEXTAUTH_URL=http://localhost:3001
-      - NEXTAUTH_SECRET=your-secret-key-here
     depends_on:
       - database
     networks:
       - jasaku-network
     volumes:
-      - .:/app
+      - ..:/app
       - /app/node_modules
       - /app/.next
 
