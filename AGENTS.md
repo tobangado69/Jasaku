@@ -26,5 +26,10 @@ NEXTAUTH_SECRET="dev-secret-key-for-local-development-only"
 ```
 
 ### Dev Dependencies Note
-- `eslint` (v8) and `eslint-config-next@15.5.4` must be installed for `npm run lint` to work — they are not listed in `package.json` by default
+- `eslint` (v8) and `eslint-config-next@15.5.4` are required devDependencies for `npm run lint`
 - No test framework is configured in this project
+
+### Known Gotchas
+- The `category` field in Prisma is a relation (Category model), not a string. API routes must transform `category` objects to `category.name` strings before sending to frontend components, or the React UI will crash with "Objects are not valid as a React child".
+- The Seeker dashboard at `components/seeker/dashboard.tsx` fetches data from `/api/dashboard?type=seeker`. It was previously hardcoded — if stats seem wrong, check the API route.
+- Registration is at `/auth/register` with API at `/api/auth/register` (public, no auth required).
