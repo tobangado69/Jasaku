@@ -106,7 +106,6 @@ export async function GET(request: NextRequest) {
       ]
     })
 
-    // Calculate average rating for each service
     const servicesWithRating = services.map(service => {
       const totalReviews = service.provider.reviews.length
       const averageRating = totalReviews > 0
@@ -115,6 +114,12 @@ export async function GET(request: NextRequest) {
 
       return {
         ...service,
+        category: service.category?.name || "Other",
+        categoryId: service.category?.id,
+        provider: {
+          ...service.provider,
+          rating: Math.round(averageRating * 10) / 10,
+        },
         averageRating: Math.round(averageRating * 10) / 10,
         totalReviews
       }

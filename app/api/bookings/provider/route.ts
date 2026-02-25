@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             title: true,
-            category: true,
+            category: { select: { id: true, name: true } },
             images: true,
           }
         },
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       service: {
         id: booking.service.id,
         title: booking.service.title,
-        category: booking.service.category,
+        category: booking.service.category?.name || "Other",
       },
       customer: {
         id: booking.customer.id,

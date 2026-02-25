@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -121,7 +122,14 @@ export default function SignInPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-600">
+          <div className="mt-4 text-center text-sm text-gray-600">
+            Don&apos;t have an account?{" "}
+            <Link href="/auth/register" className="text-primary font-medium hover:underline">
+              Create one
+            </Link>
+          </div>
+
+          <div className="mt-4 text-center text-sm text-gray-600">
             <p>Demo credentials:</p>
             <p className="font-mono text-xs mt-1">
               Provider: provider@jasaku.com / password

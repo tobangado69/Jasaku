@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             title: true,
-            category: true,
+            category: { select: { id: true, name: true } },
             images: true,
             provider: {
               select: {
@@ -70,7 +70,16 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             profileImage: true,
-            phone: true
+            phone: true,
+            location: true
+          }
+        },
+        review: {
+          select: {
+            id: true,
+            rating: true,
+            comment: true,
+            createdAt: true
           }
         },
         payment: true,
@@ -85,7 +94,15 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json(bookings)
+    const transformedBookings = bookings.map(booking => ({
+      ...booking,
+      service: {
+        ...booking.service,
+        category: booking.service.category?.name || "Other",
+      },
+    }))
+
+    return NextResponse.json(transformedBookings)
   } catch (error) {
     console.error("Error fetching bookings:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

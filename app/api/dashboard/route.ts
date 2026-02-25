@@ -69,16 +69,25 @@ async function getProviderDashboard(userId: string) {
     _sum: { totalAmount: true }
   })
 
-  // Get recent bookings
-  const recentBookings = await prisma.booking.findMany({
+  const rawRecentBookings = await prisma.booking.findMany({
     where: { providerId: userId },
     take: 5,
     include: {
-      service: { select: { title: true, category: true } },
+      service: {
+        select: {
+          title: true,
+          category: { select: { name: true } }
+        }
+      },
       customer: { select: { name: true, profileImage: true } }
     },
     orderBy: { createdAt: "desc" }
   })
+
+  const recentBookings = rawRecentBookings.map(b => ({
+    ...b,
+    service: { ...b.service, category: b.service.category?.name || "Other" }
+  }))
 
   // Calculate stats
   const totalBookings = await prisma.booking.count({
@@ -108,19 +117,23 @@ async function getProviderDashboard(userId: string) {
 }
 
 async function getSeekerDashboard(userId: string) {
-  // Get recent bookings
-  const recentBookings = await prisma.booking.findMany({
+  const rawSeekerBookings = await prisma.booking.findMany({
     where: { customerId: userId },
     take: 5,
     include: {
       service: {
-        select: { title: true, category: true, images: true },
+        select: { title: true, category: { select: { name: true } }, images: true },
         include: { provider: { select: { name: true, profileImage: true } } }
       },
       payment: true
     },
     orderBy: { createdAt: "desc" }
   })
+
+  const recentBookings = rawSeekerBookings.map(b => ({
+    ...b,
+    service: { ...b.service, category: b.service.category?.name || "Other" }
+  }))
 
   // Calculate stats
   const totalBookings = await prisma.booking.count({

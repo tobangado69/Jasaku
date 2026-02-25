@@ -60,7 +60,7 @@ export async function PATCH(
           select: {
             id: true,
             title: true,
-            category: true,
+            category: { select: { id: true, name: true } },
           }
         },
         customer: {
@@ -79,7 +79,15 @@ export async function PATCH(
       }
     })
 
-    return NextResponse.json(updatedBooking)
+    const transformed = {
+      ...updatedBooking,
+      service: {
+        ...updatedBooking.service,
+        category: updatedBooking.service.category?.name || "Other",
+      },
+    }
+
+    return NextResponse.json(transformed)
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 })
